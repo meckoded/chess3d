@@ -114,15 +114,28 @@ app.use((err, req, res, _next) => {
 setupGameHandler(io);
 
 // ============================================================
-// Start Server
+// Auto-migration + Start Server
 // ============================================================
 const PORT = parseInt(process.env.PORT, 10) || 3001;
 
-server.listen(PORT, () => {
-  logger.info(`Chess3D server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
-  logger.info(`CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-  logger.info(`WebSocket ready for game connections`);
-});
+const start = async () => {
+  // Run database migrations before accepting connections
+  try {
+    const migrate = require('./config/migrate');
+    await migrate();
+    logger.info('Database migrations completed');
+  } catch (err) {
+    logger.error('Migration failed, starting anyway:', err.message);
+  }
+
+  server.listen(PORT, () => {
+    logger.info(`Chess3D server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
+    logger.info(`CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+    logger.info(`WebSocket ready for game connections`);
+  });
+};
+
+start();
 
 // ============================================================
 // Graceful Shutdown
