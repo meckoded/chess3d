@@ -86,7 +86,7 @@ router.post('/register', authLimiter, async (req, res) => {
     return res.status(201).json({ token, refreshToken, user: newUser });
   } catch (err) {
     logger.error('Registration error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
@@ -131,7 +131,7 @@ router.post('/login', authLimiter, async (req, res) => {
     return res.json({ token, refreshToken, user: userWithoutPassword });
   } catch (err) {
     logger.error('Login error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 

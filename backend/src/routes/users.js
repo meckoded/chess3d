@@ -50,7 +50,7 @@ router.get('/leaderboard', async (req, res) => {
     return res.json({ leaderboard });
   } catch (err) {
     logger.error('Leaderboard error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
@@ -83,7 +83,7 @@ router.get('/stats', authenticate, async (req, res) => {
     return res.json({ stats });
   } catch (err) {
     logger.error('Get stats error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
