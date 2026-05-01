@@ -92,6 +92,24 @@ const migrate = async () => {
     try { db.run('ALTER TABLE games ADD COLUMN is_ai INTEGER DEFAULT 0'); } catch (_) {}
     try { db.run("ALTER TABLE games ADD COLUMN difficulty TEXT DEFAULT 'intermediate'"); } catch (_) {}
 
+    // ─── Seed admin user (if not exists) ───
+    const existingAdmin = db.get("SELECT id FROM users WHERE username = ?", ['admin']);
+    if (!existingAdmin) {
+      const bcrypt = require('bcrypt');
+      const crypto = require('crypto');
+      const adminId = crypto.randomUUID();
+      const adminHash = bcrypt.hashSync('admin123', 12);
+      db.run(
+        `INSERT INTO users (id, username, email, password_hash, rating, games_played, wins, losses, draws, role)
+         VALUES (?, 'admin', 'admin@chess3d.com', ?, 1200, 0, 0, 0, 0, 'admin')`,
+        [adminId, adminHash],
+      );
+      logger.info('Seeded admin user (password: admin123)');
+    } else {
+      // Ensure existing admin has admin role
+      db.run("UPDATE users SET role = 'admin' WHERE username = 'admin'");
+    }
+
     logger.info('Database migrations completed successfully');
   } catch (err) {
     logger.error('Migration error:', err);
