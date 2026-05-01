@@ -26,7 +26,7 @@ export default function Home() {
               maxPolarAngle={Math.PI / 2.5}
             />
             <HeroChessBoard />
-            <Environment preset="night" />
+            <Environment files="/hdri/dikhololo_night_1k.hdr" />
           </Canvas>
         </div>
 

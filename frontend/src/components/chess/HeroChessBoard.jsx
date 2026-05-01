@@ -83,7 +83,7 @@ export default function HeroChessBoard() {
       <RotatingChessBoard />
       <Particles />
       <Stars radius={30} depth={50} count={300} factor={4} saturation={0} fade speed={0.5} />
-      <Environment preset="night" />
+      <Environment files="/hdri/dikhololo_night_1k.hdr" />
     </>
   );
 }

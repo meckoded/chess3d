@@ -157,7 +157,7 @@ export default function GameScene({ onSquareClick }) {
         <SceneLighting />
         <FloatingParticles />
         <Stars radius={30} depth={50} count={200} factor={3} saturation={0} fade speed={0.3} />
-        <Environment preset="night" />
+        <Environment files="/hdri/dikhololo_night_1k.hdr" />
         <fog attach="fog" args={['#0f172a', 10, 35]} />
 
         {/* Ground plane for shadow */}
