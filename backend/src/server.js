@@ -41,7 +41,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "ws:", "wss:"],
+      connectSrc: ["'self'", "ws:", "wss:", "https://cdn.jsdelivr.net", "https://raw.githack.com"],
       imgSrc: ["'self'", "data:", "blob:"],
       scriptSrc: ["'self'", "'unsafe-eval'", "blob:"],
       scriptSrcElem: ["'self'", "'unsafe-eval'", "blob:"],
