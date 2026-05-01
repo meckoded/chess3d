@@ -17,4 +17,4 @@ services:
       - key: JWT_REFRESH_SECRET
         value: chess3d-refresh-prod-2026
       - key: DB_PATH
-        value: /opt/render/project/src/backend/chess3d.db
+        value: /opt/render/project/chess3d.db
