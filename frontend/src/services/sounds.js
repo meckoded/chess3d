@@ -5,9 +5,13 @@ const ctx = typeof window !== 'undefined' ? new (window.AudioContext || window.w
 
 // Keep track of last play time to avoid audio spam
 let lastPlay = 0;
+let _muted = false;
+
+export const setMuted = (val) => { _muted = val; };
+export const isMuted = () => _muted;
 
 const play = (freq, duration, type = 'sine', volume = 0.15) => {
-  if (!ctx) return;
+  if (!ctx || _muted) return;
   // Resume context if suspended (browser autoplay policy)
   if (ctx.state === 'suspended') ctx.resume();
 

@@ -9,7 +9,7 @@ import GameScene from '../components/chess/GameScene';
 import MoveHistory from '../components/chess/MoveHistory';
 import GameTimer from '../components/chess/GameTimer';
 import PromotionDialog from '../components/chess/PromotionDialog';
-import { playMove, playCapture, playCheck, playGameStart, playGameOver, playNotify } from '../services/sounds';
+import { playMove, playCapture, playCheck, playGameStart, playGameOver, playNotify, setMuted } from '../services/sounds';
 import toast from 'react-hot-toast';
 
 export default function Game() {
@@ -25,11 +25,15 @@ export default function Game() {
     setOpponent, setPlayerColor, addMove, addGameMessage, showPromotionDialog, hidePromotionDialog,
     showPromotion, promotionCallback, promotionSquare,
     setDrawOffered, clearDrawOffer,
+    soundEnabled, toggleSound,
   } = useGameStore();
   const [loading, setLoading] = useState(true);
   const [resigning, setResigning] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef(null);
+
+  // Sync sound mute state with store
+  useEffect(() => { setMuted(!soundEnabled); }, [soundEnabled]);
 
   // Fetch initial game data
   useEffect(() => {
@@ -268,6 +272,7 @@ export default function Game() {
 
   const isMyTurn = playerColor && turn === (playerColor === 'white' ? 'w' : 'b');
   const isGameOver = gameState === 'completed';
+  const isSpectator = !playerColor;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -275,40 +280,56 @@ export default function Game() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between mb-4"
+        className="flex flex-wrap items-center justify-between gap-3 mb-4"
       >
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-white" />
-            <span className="text-white font-medium">{players.white?.username || 'White'}</span>
-            <span className="text-xs text-slate-500">({players.white?.rating || '—'})</span>
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-3 h-3 rounded-full bg-white dark:bg-slate-200 shadow-sm" />
+            <span className="text-slate-800 dark:text-white font-medium text-sm sm:text-base">{players.white?.username || 'White'}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline">({players.white?.rating || '—'})</span>
             {turn === 'w' && !isGameOver && (
-              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">Turn</span>
+              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full animate-pulse">Turn</span>
             )}
           </div>
-          <span className="text-slate-600 font-bold">vs</span>
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-slate-700 border border-slate-600" />
-            <span className="text-slate-300 font-medium">{players.black?.username || 'Black'}</span>
-            <span className="text-xs text-slate-500">({players.black?.rating || '—'})</span>
+          <span className="text-slate-400 dark:text-slate-500 font-bold text-sm">vs</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-3 h-3 rounded-full bg-slate-400 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 shadow-sm" />
+            <span className="text-slate-600 dark:text-slate-300 font-medium text-sm sm:text-base">{players.black?.username || 'Black'}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline">({players.black?.rating || '—'})</span>
             {turn === 'b' && !isGameOver && (
-              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">Turn</span>
+              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full animate-pulse">Turn</span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          {/* 🎵 Sound toggle */}
+          <button
+            onClick={toggleSound}
+            className="px-2 py-2 rounded-lg text-sm transition-all hover:bg-slate-100 dark:hover:bg-slate-800/50"
+            title={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+          >
+            {soundEnabled ? '🔊' : '🔇'}
+          </button>
+
+          {/* 👁 Spectator badge */}
+          {isSpectator && (
+            <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400">
+              👁 Spectating
+            </span>
+          )}
+
           {!isGameOver && playerColor && (
             <>
-              <button onClick={handleDrawOffer} disabled={drawOfferedByMe} className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-sm font-medium rounded-lg transition-all disabled:opacity-40" title="Offer Draw">
+              <button onClick={handleDrawOffer} disabled={drawOfferedByMe} className="px-3 sm:px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs sm:text-sm font-medium rounded-lg transition-all disabled:opacity-40" title="Offer Draw">
                 🤝 Draw
               </button>
-              <button onClick={handleResign} disabled={resigning} className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium rounded-lg transition-all">
+              <button onClick={handleResign} disabled={resigning} className="px-3 sm:px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs sm:text-sm font-medium rounded-lg transition-all">
                 Resign
               </button>
             </>
           )}
-          <button onClick={() => navigate('/lobby')} className="px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-sm rounded-lg transition-all">
+          <button onClick={() => navigate('/lobby')} className="px-3 sm:px-4 py-2 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs sm:text-sm rounded-lg transition-all">
             ← Lobby
           </button>
         </div>
@@ -387,35 +408,32 @@ export default function Game() {
             </div>
           )}
 
-          {/* Timer */}
-          {/* <GameTimer timeControl={timeControl} /> */}
-
           {/* Move History */}
           <MoveHistory moves={moves} fen={fen} />
 
           {/* Game Chat */}
-          <div className="flex flex-col h-[280px] rounded-xl bg-slate-800/40 border border-slate-700/30 overflow-hidden">
-            <div className="p-3 border-b border-slate-700/30">
-              <h3 className="text-sm font-bold text-white">Game Chat</h3>
+          <div className="flex flex-col h-[280px] rounded-xl bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/30 overflow-hidden">
+            <div className="p-3 border-b border-slate-200 dark:border-slate-700/30">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white">Game Chat</h3>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {gameMessages.length === 0 && (
-                <p className="text-slate-600 text-xs text-center py-4">No messages yet</p>
+                <p className="text-slate-400 dark:text-slate-600 text-xs text-center py-4">No messages yet</p>
               )}
               {gameMessages.map((msg, i) => (
                 <div key={i} className="text-xs">
                   <span className="text-amber-500 font-medium">{msg.from || msg.username}</span>
-                  <span className="text-slate-600 mx-1">·</span>
-                  <span className="text-slate-300">{msg.message}</span>
+                  <span className="text-slate-400 dark:text-slate-600 mx-1">·</span>
+                  <span className="text-slate-600 dark:text-slate-300">{msg.message}</span>
                 </div>
               ))}
               <div ref={chatEndRef} />
             </div>
-            <form onSubmit={handleSendChat} className="p-3 border-t border-slate-700/30 flex gap-2">
+            <form onSubmit={handleSendChat} className="p-3 border-t border-slate-200 dark:border-slate-700/30 flex gap-2">
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-800 dark:text-white text-xs placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500"
                 placeholder="Chat..."
                 maxLength={200}
               />

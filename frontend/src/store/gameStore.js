@@ -26,6 +26,10 @@ const useGameStore = create((set, get) => ({
   drawOfferedBy: null, // who offered draw (opponent's username)
   drawOfferedByMe: false, // did I offer the draw?
 
+  // 🎵 Sound
+  soundEnabled: true,
+  toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
+
   // Game list (for lobby)
   games: [],
   activeGames: [],
