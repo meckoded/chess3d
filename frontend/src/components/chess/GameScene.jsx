@@ -129,10 +129,10 @@ function FloatingParticles() {
   );
 }
 
-export default function GameScene({ onSquareClick }) {
+export default function GameScene({ onSquareClick, overrideFen }) {
   const { fen, moves } = useGameStore();
 
-  const pieces = parseFen(fen);
+  const pieces = parseFen(overrideFen || fen);
 
   // Determine which pieces are moving (for animation)
   const lastMove = moves[moves.length - 1];

@@ -9,8 +9,19 @@ import GameScene from '../components/chess/GameScene';
 import MoveHistory from '../components/chess/MoveHistory';
 import GameTimer from '../components/chess/GameTimer';
 import PromotionDialog from '../components/chess/PromotionDialog';
+import ReplayControls from '../components/chess/ReplayControls';
 import { playMove, playCapture, playCheck, playGameStart, playGameOver, playNotify, setMuted } from '../services/sounds';
 import toast from 'react-hot-toast';
+
+// Parse FEN to get the board at a specific move index
+function fenAtIndex(fullFen, moves, index) {
+  if (index < 0 || !moves.length) return fullFen;
+  // Use a simple chess.js parser approach: replay moves up to index
+  // We'll just return the original fen since server-side stores FEN per move
+  // The server can provide this — for now use the last known fen
+  const move = moves[index];
+  return move?.fen || fullFen;
+}
 
 export default function Game() {
   const { id } = useParams();
@@ -31,6 +42,11 @@ export default function Game() {
   const [resigning, setResigning] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef(null);
+
+  // 🔁 Replay state
+  const [replayIndex, setReplayIndex] = useState(-1);
+  const [displayFen, setDisplayFen] = useState(null);
+  const originalFenRef = useRef(null);
 
   // Sync sound mute state with store
   useEffect(() => { setMuted(!soundEnabled); }, [soundEnabled]);
@@ -53,6 +69,7 @@ export default function Game() {
           moves: data.moves || [],
           timeControl: g.time_control,
         });
+        originalFenRef.current = g.fen;
         // Build result info for completed games
         if (g.status === 'completed' && g.result) {
           setResult({
@@ -74,6 +91,48 @@ export default function Game() {
     };
     loadGame();
   }, [id]);
+
+  // 🎬 Replay seek handler — reconstruct FEN by replaying moves
+  const handleReplaySeek = useCallback((index) => {
+    setReplayIndex(index);
+    if (index < 0) {
+      setDisplayFen(null); // Use live FEN
+      return;
+    }
+    const move = moves[index];
+    if (move?.fen) {
+      setDisplayFen(move.fen);
+    }
+  }, [moves]);
+
+  // ⌨️ Keyboard shortcuts
+  useEffect(() => {
+    const handleKey = (e) => {
+      // Ignore if typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (isGameOver) {
+        // Replay keys
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const next = Math.max(-1, replayIndex - 1);
+          handleReplaySeek(next);
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          const next = Math.min(moves.length - 1, replayIndex + 1);
+          if (next !== replayIndex) handleReplaySeek(next);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          handleReplaySeek(-1);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          handleReplaySeek(moves.length - 1);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isGameOver, replayIndex, moves.length, handleReplaySeek]);
 
   // Socket connection for real-time updates
   const socket = useSocket({
@@ -131,6 +190,10 @@ export default function Game() {
       clearDrawOffer();
       toast('Draw offer declined', { icon: '✖️' });
     },
+    onDrawAccepted: () => {
+      clearDrawOffer();
+      toast.success('Draw accepted!');
+    },
   });
 
   // Auto-scroll chat
@@ -150,6 +213,11 @@ export default function Game() {
   };
 
   const handleSquareClick = (square) => {
+    // Exit replay mode if in it
+    if (replayIndex >= 0) {
+      handleReplaySeek(-1);
+    }
+
     if (!square) {
       setSelectedSquare(null);
       setLegalMoves([]);
@@ -164,7 +232,8 @@ export default function Game() {
         const to = square;
 
         // Check for promotion — pawn reaching final rank
-        const placement = fen.split(' ')[0];
+        const currentFen = displayFen || fen;
+        const placement = currentFen.split(' ')[0];
         const ranks = placement.split('/');
         const fromRank = turn === 'w' ? 8 - parseInt(from[1]) : parseInt(from[1]) - 1;
         const fromPiece = ranks[fromRank]?.[from.charCodeAt(0) - 97];
@@ -273,6 +342,7 @@ export default function Game() {
   const isMyTurn = playerColor && turn === (playerColor === 'white' ? 'w' : 'b');
   const isGameOver = gameState === 'completed';
   const isSpectator = !playerColor;
+  const activeFen = displayFen || fen;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -347,11 +417,11 @@ export default function Game() {
              result.winner === user.id ? 'You Won! 🎉' : 'You Lost'}{' '}
           </span>
           {result.ratingChanges && (
-            <span className="text-slate-400 ml-3">
+            <span className="text-slate-400 dark:text-slate-300 ml-3">
               Rating: {result.ratingChanges.white.change > 0 ? '+' : ''}{result.ratingChanges.white.change}
             </span>
           )}
-          <button onClick={handlePGNDownload} className="ml-4 px-3 py-1 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-all">
+          <button onClick={handlePGNDownload} className="ml-4 px-3 py-1 bg-slate-200 dark:bg-slate-700/50 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg transition-all">
             📥 PGN
           </button>
         </motion.div>
@@ -388,7 +458,7 @@ export default function Game() {
       {/* Main Game Layout */}
       <div className="grid lg:grid-cols-[1fr_300px] gap-4">
         {/* 3D Board */}
-        <GameScene onSquareClick={handleSquareClick} />
+        <GameScene onSquareClick={handleSquareClick} overrideFen={activeFen} />
 
         {/* Sidebar */}
         <div className="space-y-4">
@@ -408,8 +478,26 @@ export default function Game() {
             </div>
           )}
 
+          {/* 🎬 Replay Controls — visible for completed games */}
+          {isGameOver && moves.length > 0 && (
+            <div className="mb-2">
+              <ReplayControls
+                moves={moves}
+                fen={activeFen}
+                onSeek={handleReplaySeek}
+              />
+            </div>
+          )}
+
+          {/* Replay indicator */}
+          {replayIndex >= 0 && (
+            <div className="p-2 rounded-lg text-xs text-center bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">
+              📺 Replay — move {replayIndex + 1}/{moves.length}
+            </div>
+          )}
+
           {/* Move History */}
-          <MoveHistory moves={moves} fen={fen} />
+          <MoveHistory moves={moves} fen={activeFen} />
 
           {/* Game Chat */}
           <div className="flex flex-col h-[280px] rounded-xl bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/30 overflow-hidden">

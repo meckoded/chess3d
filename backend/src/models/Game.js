@@ -106,7 +106,7 @@ const deleteGame = async (id) => {
  */
 const getMoves = async (gameId) => {
   return db.query(
-    'SELECT * FROM moves WHERE game_id = ? ORDER BY move_number ASC',
+    'SELECT m.*, m.fen_after AS fen FROM moves m WHERE m.game_id = ? ORDER BY m.move_number ASC',
     [gameId],
   );
 };
