@@ -190,8 +190,8 @@ router.post('/:id/move', authenticate, moveLimiter, async (req, res) => {
       updateData.ended_at = new Date();
 
       if (state.isCheckmate) {
-        const winnerColor = state.turn === 'w' ? 'b' : 'w';
-        const winnerId = winnerColor === 'w' ? game.white_player : game.black_player;
+        const winnerColor = state.turn === 'w' ? 'black' : 'white';
+        const winnerId = winnerColor === 'white' ? game.white_player : game.black_player;
         updateData.winner = winnerId;
         updateData.result = `${winnerColor}_win`;
       } else if (state.isDraw || state.isStalemate) {

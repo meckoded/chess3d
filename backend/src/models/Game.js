@@ -79,14 +79,14 @@ const updateFen = async (id, fen, pgn) => {
 
 const updateTime = async (id, whiteTime, blackTime) => {
   db.run(
-    'UPDATE games SET white_time = ?, black_time = ?, updated_at = datetime("now") WHERE id = ?',
+    `UPDATE games SET white_time = ?, black_time = ?, updated_at = datetime('now') WHERE id = ?`,
     [whiteTime, blackTime, id],
   );
 };
 
 const setResult = async (id, status, result, winnerId) => {
   db.run(
-    'UPDATE games SET status = ?, result = ?, winner = ?, updated_at = datetime("now") WHERE id = ?',
+    `UPDATE games SET status = ?, result = ?, winner = ?, updated_at = datetime('now') WHERE id = ?`,
     [status, result, winnerId, id],
   );
   return findById(id);
@@ -132,7 +132,8 @@ const updateGame = async (id, data) => {
   for (const [key, value] of Object.entries(data)) {
     if (allowed.includes(key)) {
       sets.push(`${key} = ?`);
-      vals.push(value);
+      // Convert Date objects to ISO strings, SQLite only accepts primitives
+      vals.push(value instanceof Date ? value.toISOString() : value);
     }
   }
   if (sets.length === 0) return;

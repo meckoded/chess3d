@@ -47,6 +47,7 @@ const migrate = async () => {
         white_time INTEGER,
         black_time INTEGER,
         last_move_at TEXT,
+        ended_at TEXT,
         winner TEXT REFERENCES users(id),
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))

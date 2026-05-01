@@ -30,21 +30,21 @@ const create = async ({ username, email, passwordHash }) => {
 
 const updateRefreshToken = async (id, refreshToken, expiresAt) => {
   db.run(
-    'UPDATE users SET refresh_token = ?, refresh_token_expires_at = ?, updated_at = datetime("now") WHERE id = ?',
+    `UPDATE users SET refresh_token = ?, refresh_token_expires_at = ?, updated_at = datetime('now') WHERE id = ?`,
     [refreshToken, expiresAt, id],
   );
 };
 
 const findByRefreshToken = async (token) => {
   return db.get(
-    "SELECT * FROM users WHERE refresh_token = ? AND refresh_token_expires_at > datetime('now')",
+    `SELECT * FROM users WHERE refresh_token = ? AND refresh_token_expires_at > datetime('now')`,
     [token],
   ) || null;
 };
 
 const clearRefreshToken = async (id) => {
   db.run(
-    'UPDATE users SET refresh_token = NULL, refresh_token_expires_at = NULL, updated_at = datetime("now") WHERE id = ?',
+    `UPDATE users SET refresh_token = NULL, refresh_token_expires_at = NULL, updated_at = datetime('now') WHERE id = ?`,
     [id],
   );
 };
@@ -58,13 +58,16 @@ const getAllUsers = async () => {
 const updateRating = async (id, rating, result) => {
   const field = result === 'win' ? 'wins' : result === 'loss' ? 'losses' : 'draws';
   db.run(
-    `UPDATE users SET rating = ?, games_played = games_played + 1, ${field} = ${field} + 1, updated_at = datetime("now") WHERE id = ?`,
+    `UPDATE users SET rating = ?, games_played = games_played + 1, ${field} = ${field} + 1, updated_at = datetime('now') WHERE id = ?`,
     [rating, id],
   );
 };
 
 const setRole = async (id, role) => {
-  db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, id]);
+  db.run(
+    `UPDATE users SET role = ?, updated_at = datetime('now') WHERE id = ?`,
+    [role, id],
+  );
 };
 
 const deleteUser = async (id) => {
