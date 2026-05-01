@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+.cache/
+chess3d.db
+chess3d.db-*
+chess3d.db-shm
+chess3d.db-wal
+.netlify/
+**/public/
