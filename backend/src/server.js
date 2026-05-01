@@ -1,0 +1,155 @@
+require('dotenv').config();
+
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const helmet = require('helmet');
+const logger = require('./config/logger');
+const { generalLimiter } = require('./middleware/rateLimiter');
+const { setupGameHandler } = require('./socket/gameHandler');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const gamesRoutes = require('./routes/games');
+const usersRoutes = require('./routes/users');
+const adminRoutes = require('./routes/admin');
+
+const app = express();
+const server = http.createServer(app);
+
+// ============================================================
+// Socket.io Setup
+// ============================================================
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 10000,
+  maxHttpBufferSize: 1e6, // 1MB
+});
+
+// ============================================================
+// Security Middleware
+// ============================================================
+app.use(helmet());
+
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// ============================================================
+// Body Parsing
+// ============================================================
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// ============================================================
+// Rate Limiting
+// ============================================================
+app.use('/api/', generalLimiter);
+
+// ============================================================
+// Health Check
+// ============================================================
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
+// ============================================================
+// API Routes
+// ============================================================
+app.use('/api/auth', authRoutes);
+app.use('/api/games', gamesRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/admin', adminRoutes);
+
+// ============================================================
+// 404 Handler
+// ============================================================
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// ============================================================
+// Global Error Handler
+// ============================================================
+app.use((err, req, res, _next) => {
+  logger.error('Unhandled error:', err);
+
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+  });
+});
+
+// ============================================================
+// Socket.io Game Handler
+// ============================================================
+setupGameHandler(io);
+
+// ============================================================
+// Start Server
+// ============================================================
+const PORT = parseInt(process.env.PORT, 10) || 3001;
+
+server.listen(PORT, () => {
+  logger.info(`Chess3D server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
+  logger.info(`CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+  logger.info(`WebSocket ready for game connections`);
+});
+
+// ============================================================
+// Graceful Shutdown
+// ============================================================
+const shutdown = async (signal) => {
+  logger.info(`${signal} received. Shutting down gracefully...`);
+
+  server.close(() => {
+    logger.info('HTTP server closed');
+    io.close(() => {
+      logger.info('Socket.io server closed');
+    });
+  });
+
+  // Close database pool
+  try {
+    const db = require('./config/database');
+    await db.pool.end();
+    logger.info('Database pool closed');
+  } catch (err) {
+    logger.error('Error closing database pool:', err);
+  }
+
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Handle uncaught exceptions and rejections
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled rejection:', reason);
+});
+
+module.exports = { app, server, io };
