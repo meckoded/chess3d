@@ -31,7 +31,7 @@ export default function Home() {
         </div>
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 z-10 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-slate-900/20 via-slate-900/40 to-slate-100 dark:via-slate-900/60 dark:to-slate-900" />
 
         {/* Content */}
         <div className="relative z-20 flex flex-col items-center justify-center h-full text-center px-4">
@@ -41,7 +41,7 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             className="text-5xl md:text-7xl font-bold mb-6"
           >
-            <span className="text-white">Chess</span>
+            <span className="text-slate-800 dark:text-white">Chess</span>
             <span className="text-amber-500">3D</span>
           </motion.h1>
 
@@ -49,7 +49,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-xl text-slate-300 max-w-2xl mb-10"
+            className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mb-10"
           >
             Experience chess like never before — three-dimensional battles, 
             real-time multiplayer, and competitive ELO rankings.
@@ -78,7 +78,7 @@ export default function Home() {
                 </Link>
                 <Link
                   to="/login"
-                  className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-all transform hover:scale-105 border border-slate-600/50"
+                  className="px-8 py-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-semibold rounded-xl transition-all transform hover:scale-105 border border-slate-300 dark:border-slate-600/50"
                 >
                   Sign In
                 </Link>
@@ -93,7 +93,7 @@ export default function Home() {
         <motion.h2
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          className="text-3xl font-bold text-center mb-16 text-white"
+          className="text-3xl font-bold text-center mb-16 text-slate-800 dark:text-white"
         >
           Why Chess<span className="text-amber-500">3D</span>?
         </motion.h2>
@@ -136,11 +136,11 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="p-8 rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/30 hover:border-amber-500/30 transition-all"
+              className="p-8 rounded-2xl bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/30 hover:border-amber-500/30 transition-all"
             >
               <div className="text-4xl mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-              <p className="text-slate-400 leading-relaxed">{feature.desc}</p>
+              <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-3">{feature.title}</h3>
+              <p className="text-slate-500 dark:text-slate-400 leading-relaxed">{feature.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -153,10 +153,10 @@ export default function Home() {
           whileInView={{ opacity: 1, scale: 1 }}
           className="max-w-2xl mx-auto"
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-white mb-6">
             Ready to Make Your Move?
           </h2>
-          <p className="text-slate-400 text-lg mb-8">
+          <p className="text-slate-500 dark:text-slate-400 text-lg mb-8">
             Join players from around the world. Create an account, climb the ranks, 
             and become a chess legend.
           </p>

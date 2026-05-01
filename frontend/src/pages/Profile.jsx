@@ -54,34 +54,34 @@ export default function Profile() {
     <div className="max-w-4xl mx-auto px-4 py-10">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         {/* Profile Header */}
-        <div className="p-8 rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/30 mb-8">
-          <div className="flex items-start justify-between">
+        <div className="p-8 rounded-2xl bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/30 mb-8">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div>
               {editing ? (
                 <div className="flex items-center gap-3 mb-4">
                   <input
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-xl text-white text-2xl font-bold focus:outline-none focus:border-amber-500"
+                    className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white text-2xl font-bold focus:outline-none focus:border-amber-500"
                   />
                   <button onClick={handleSave} className="px-4 py-2 bg-amber-500 text-slate-900 rounded-xl font-medium text-sm">Save</button>
-                  <button onClick={() => setEditing(false)} className="px-4 py-2 bg-slate-700 text-white rounded-xl text-sm">Cancel</button>
+                  <button onClick={() => setEditing(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white rounded-xl text-sm">Cancel</button>
                 </div>
               ) : (
-                <h1 className="text-3xl font-bold text-white mb-2">{user?.username}</h1>
+                <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">{user?.username}</h1>
               )}
-              <p className="text-slate-400">{user?.email}</p>
-              <p className="text-sm text-slate-500 mt-1">Joined {new Date(user?.created_at).toLocaleDateString('he-IL')}</p>
+              <p className="text-slate-500 dark:text-slate-400">{user?.email}</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Joined {new Date(user?.created_at).toLocaleDateString('he-IL')}</p>
             </div>
             <div className="text-right">
-              <div className="text-5xl font-bold text-amber-500">{user?.rating || 1200}</div>
-              <div className="text-sm text-slate-400 uppercase tracking-wide">ELO Rating</div>
+              <div className="text-4xl sm:text-5xl font-bold text-amber-500">{user?.elo || user?.rating || 1200}</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400 uppercase tracking-wide">ELO Rating</div>
             </div>
           </div>
           {!editing && (
             <button
               onClick={() => setEditing(true)}
-              className="mt-6 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-all"
+              className="mt-6 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-white text-sm rounded-lg transition-all"
             >
               Edit Profile
             </button>
@@ -89,7 +89,7 @@ export default function Profile() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-8">
           {[
             { label: 'Games', value: stats?.total_games || 0 },
             { label: 'Wins', value: stats?.wins || 0, color: 'text-emerald-400' },
@@ -100,27 +100,27 @@ export default function Profile() {
             <motion.div
               key={stat.label}
               whileHover={{ scale: 1.03 }}
-              className="p-5 rounded-xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/30 text-center"
+              className="p-4 sm:p-5 rounded-xl bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/30 text-center"
             >
-              <div className={`text-2xl font-bold ${stat.color || 'text-white'}`}>{stat.value}</div>
-              <div className="text-xs text-slate-500 mt-1">{stat.label}</div>
+              <div className={`text-xl sm:text-2xl font-bold ${stat.color || 'text-slate-800 dark:text-white'}`}>{stat.value}</div>
+              <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">{stat.label}</div>
             </motion.div>
           ))}
         </div>
 
         {/* Recent Games */}
-        <div className="rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/30 p-6">
-          <h2 className="text-xl font-bold text-white mb-6">Recent Games</h2>
+        <div className="rounded-2xl bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/30 p-6">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6">Recent Games</h2>
           {recentGames.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">No games played yet</p>
+            <p className="text-slate-400 dark:text-slate-500 text-center py-8">No games played yet</p>
           ) : (
             <div className="space-y-3">
               {recentGames.map((game) => (
-                <div key={game.id} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-slate-700/20">
+                <div key={game.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/20 gap-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-300">{game.white_username}</span>
-                    <span className="text-xs text-slate-600">vs</span>
-                    <span className="text-sm text-slate-300">{game.black_username}</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300">{game.white_username}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-600">vs</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300">{game.black_username}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs px-2 py-0.5 rounded font-medium ${
@@ -129,7 +129,7 @@ export default function Profile() {
                     }`}>
                       {game.winner === user.id ? 'Win' : game.result === 'draw' ? 'Draw' : 'Loss'}
                     </span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
                       {new Date(game.ended_at || game.created_at).toLocaleDateString('he-IL')}
                     </span>
                   </div>

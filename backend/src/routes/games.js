@@ -16,16 +16,17 @@ const router = express.Router();
  */
 router.post('/create', authenticate, async (req, res) => {
   try {
-    const { timeControl, increment, isAI } = req.body;
+    const { timeControl, increment, isAI, difficulty } = req.body;
 
     const game = await Game.create({
       whitePlayer: req.user.id,
       timeControl: timeControl || 600,
       increment: increment || 0,
       isAI: !!isAI,
+      difficulty: difficulty || 'intermediate',
     });
 
-    logger.info(`Game created: ${game.id} by ${req.user.username}${isAI ? ' (vs AI)' : ''}`);
+    logger.info(`Game created: ${game.id} by ${req.user.username}${isAI ? ` (vs AI ${difficulty})` : ''}`);
 
     return res.status(201).json({ game });
   } catch (err) {
@@ -488,9 +489,10 @@ router.post('/:id/ai-move', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'It is not the AI\'s turn' });
     }
 
-    // Get AI best move
+    // Get AI best move using game's difficulty setting
     const aiService = require('../services/aiService');
-    const uciMove = await aiService.getBestMove(game.fen, { depth: 10, moveTime: 800 });
+    const diff = aiService.DIFFICULTY[game.difficulty] || aiService.DIFFICULTY.intermediate;
+    const uciMove = await aiService.getBestMove(game.fen, { depth: diff.depth, moveTime: diff.moveTime });
     if (!uciMove) return res.status(500).json({ error: 'AI could not compute a move' });
 
     const from = uciMove.substring(0, 2);

@@ -62,11 +62,11 @@ export default function Register() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md p-8 rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/30"
+        className="w-full max-w-md p-8 rounded-2xl bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/30"
       >
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
-          <p className="text-slate-400">Join the Chess3D arena</p>
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">Create Account</h1>
+          <p className="text-slate-500 dark:text-slate-400">Join the Chess3D arena</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -77,13 +77,13 @@ export default function Register() {
             { label: 'Confirm Password', name: 'confirm', type: 'password', placeholder: 'Repeat password', auto: 'new-password' },
           ].map((field) => (
             <div key={field.name}>
-              <label className="block text-sm font-medium text-slate-300 mb-2">{field.label}</label>
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">{field.label}</label>
               <input
                 type={field.type}
                 name={field.name}
                 value={form[field.name]}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
                 placeholder={field.placeholder}
                 autoComplete={field.auto}
               />
@@ -99,7 +99,7 @@ export default function Register() {
           </button>
         </form>
 
-        <p className="text-center text-slate-400 mt-6">
+        <p className="text-center text-slate-500 dark:text-slate-400 mt-6">
           Already have an account?{' '}
           <Link to="/login" className="text-amber-500 hover:text-amber-400 font-medium">
             Sign In

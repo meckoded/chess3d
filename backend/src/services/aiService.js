@@ -112,4 +112,13 @@ const evaluate = async (fen, { depth = 10 } = {}) => {
   }
 };
 
-module.exports = { initStockfish, getBestMove, evaluate };
+// ─── AI Difficulty Levels ───
+const DIFFICULTY = {
+  beginner:    { depth: 4,  moveTime: 300,  label: 'Beginner (800 ELO)' },
+  casual:      { depth: 8,  moveTime: 600,  label: 'Casual (1200 ELO)' },
+  intermediate:{ depth: 12, moveTime: 1000, label: 'Intermediate (1600 ELO)' },
+  advanced:    { depth: 16, moveTime: 1500, label: 'Advanced (2000 ELO)' },
+  expert:      { depth: 20, moveTime: 3000, label: 'Expert (2400 ELO)' },
+};
+
+module.exports = { initStockfish, getBestMove, evaluate, DIFFICULTY };

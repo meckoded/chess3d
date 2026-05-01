@@ -90,6 +90,7 @@ const migrate = async () => {
     // ─── Migrate existing databases (add new columns) ───
     try { db.run('ALTER TABLE games ADD COLUMN increment INTEGER DEFAULT 0'); } catch (_) {}
     try { db.run('ALTER TABLE games ADD COLUMN is_ai INTEGER DEFAULT 0'); } catch (_) {}
+    try { db.run("ALTER TABLE games ADD COLUMN difficulty TEXT DEFAULT 'intermediate'"); } catch (_) {}
 
     logger.info('Database migrations completed successfully');
   } catch (err) {

@@ -27,6 +27,15 @@ const useAuthStore = create(
         })),
 
       getToken: () => get().token,
+
+      // 🎨 Theme
+      theme: 'dark',
+      toggleTheme: () =>
+        set((s) => {
+          const next = s.theme === 'dark' ? 'light' : 'dark';
+          document.documentElement.classList.toggle('dark', next === 'dark');
+          return { theme: next };
+        }),
     }),
     {
       name: 'chess3d-auth',
@@ -34,6 +43,7 @@ const useAuthStore = create(
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
+        theme: state.theme,
       }),
     }
   )
