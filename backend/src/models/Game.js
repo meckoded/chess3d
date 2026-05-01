@@ -3,12 +3,12 @@ const db = require('../config/database');
 
 const generateId = () => crypto.randomUUID();
 
-const create = async ({ whitePlayer, timeControl = 600 }) => {
+const create = async ({ whitePlayer, blackPlayer = null, timeControl = 600, increment = 0, isAI = false }) => {
   const id = generateId();
   db.run(
-    `INSERT INTO games (id, white_player, time_control, status, white_time, black_time)
-     VALUES (?, ?, ?, 'waiting', ?, ?)`,
-    [id, whitePlayer, timeControl, timeControl, timeControl],
+    `INSERT INTO games (id, white_player, black_player, time_control, increment, status, white_time, black_time, is_ai)
+     VALUES (?, ?, ?, ?, ?, 'waiting', ?, ?, ?)`,
+    [id, whitePlayer, blackPlayer, timeControl, increment, timeControl, timeControl, isAI ? 1 : 0],
   );
   return findById(id);
 };

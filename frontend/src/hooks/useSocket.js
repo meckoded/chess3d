@@ -17,6 +17,7 @@ export default function useSocket({
   onChatMessage,
   onMoveError,
   onDrawOffered,
+  onDrawAccepted,
   onDrawDeclined,
 } = {}) {
   const socketRef = useRef(null);
@@ -32,6 +33,7 @@ export default function useSocket({
     onChatMessage,
     onMoveError,
     onDrawOffered,
+    onDrawAccepted,
     onDrawDeclined,
   };
 

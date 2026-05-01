@@ -9,6 +9,7 @@ import GameScene from '../components/chess/GameScene';
 import MoveHistory from '../components/chess/MoveHistory';
 import GameTimer from '../components/chess/GameTimer';
 import PromotionDialog from '../components/chess/PromotionDialog';
+import { playMove, playCapture, playCheck, playGameStart, playGameOver, playNotify } from '../services/sounds';
 import toast from 'react-hot-toast';
 
 export default function Game() {
@@ -77,12 +78,22 @@ export default function Game() {
       if (data.game) setGameData({ gameState: data.game.status });
       if (data.fen) setFen(data.fen);
       if (data.moves) setMoves(data.moves);
-      if (data.isCheck !== undefined) setCheckStatus(data.isCheck, data.isCheckmate, data.isStalemate, data.isDraw);
+      if (data.isCheck !== undefined) {
+        setCheckStatus(data.isCheck, data.isCheckmate, data.isStalemate, data.isDraw);
+        if (data.isCheck) playCheck();
+        else if (data.isCheckmate && data.isGameOver) playGameOver();
+      }
       if (data.isGameOver && data.result) setResult(data);
-      if (data.playedBy && data.move) addMove(data.move);
+      if (data.playedBy && data.move) {
+        addMove(data.move);
+        const move = data.move;
+        if (move.captured || move.flags?.includes('c')) playCapture();
+        else playMove();
+      }
     },
     onGameOver: (data) => {
       setResult(data);
+      playGameOver();
       setCheckStatus(false, data.byCheckmate || false, data.byDraw || false, false);
       if (data.byTimeout) {
         const meTimedOut = (playerColor === 'white' && data.timeoutColor === 'white') ||

@@ -145,6 +145,11 @@ echo "$R" | grep -q 'Result' && ok "PGN export" || bad "PGN export"
 R=$(curl -s -X POST $BASE/api/games/$GID/move -H "Authorization: Bearer $TOK_A" -H 'Content-Type: application/json' -d '{"from":"g1","to":"f3"}') 2>/dev/null
 echo "$R" | grep -q '"whiteTime"' && ok "Clock time in move response" || bad "Clock time in move"
 
+# ─── AI game creation ───
+R=$(curl -s -X POST $BASE/api/games/create -H "Authorization: Bearer $TOK_A" -H 'Content-Type: application/json' -d '{"timeControl":600,"isAI":true}')
+echo "$R" | grep -q '"id"' && ok "AI game created" || bad "AI game"
+echo "$R" | grep -q '"is_ai":1' && ok "  → is_ai flag set" || bad "  → is_ai flag"
+
 # ─── Admin endpoints ───
 ADMINU="e2eadmin_$(date +%s)"
 ADMIN=$(curl -s -X POST $BASE/api/auth/register -H 'Content-Type: application/json' -d "{\"username\":\"$ADMINU\",\"email\":\"${ADMINU}@test.com\",\"password\":\"$PWD\"}")

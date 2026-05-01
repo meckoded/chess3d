@@ -20,10 +20,10 @@ const computeElapsed = (game, playerColor) => {
 };
 
 /**
- * Deduct time and return new clock state.
+ * Deduct time and return new clock state. Optionally adds increment.
  * Returns { whiteTime, blackTime, elapsed, isTimeout }.
  */
-const processMove = (game, playerColor) => {
+const processMove = (game, playerColor, incrementSecs = 0) => {
   const elapsed = computeElapsed(game, playerColor);
 
   let whiteTime = game.white_time;
@@ -31,8 +31,10 @@ const processMove = (game, playerColor) => {
 
   if (playerColor === 'w') {
     whiteTime = Math.max(0, whiteTime - elapsed);
+    if (incrementSecs > 0) whiteTime += incrementSecs;
   } else {
     blackTime = Math.max(0, blackTime - elapsed);
+    if (incrementSecs > 0) blackTime += incrementSecs;
   }
 
   const isWhiteTimeout = playerColor === 'w' && whiteTime <= 0;

@@ -16,14 +16,16 @@ const router = express.Router();
  */
 router.post('/create', authenticate, async (req, res) => {
   try {
-    const { timeControl } = req.body;
+    const { timeControl, increment, isAI } = req.body;
 
     const game = await Game.create({
       whitePlayer: req.user.id,
       timeControl: timeControl || 600,
+      increment: increment || 0,
+      isAI: !!isAI,
     });
 
-    logger.info(`Game created: ${game.id} by ${req.user.username}`);
+    logger.info(`Game created: ${game.id} by ${req.user.username}${isAI ? ' (vs AI)' : ''}`);
 
     return res.status(201).json({ game });
   } catch (err) {
@@ -85,6 +87,7 @@ router.get('/:id', authenticate, async (req, res) => {
 /**
  * POST /api/games/:id/join
  * Join a waiting game as the black player.
+ * For AI games, auto-starts immediately.
  */
 router.post('/:id/join', authenticate, async (req, res) => {
   try {
@@ -149,8 +152,8 @@ router.post('/:id/move', authenticate, moveLimiter, async (req, res) => {
 
     const playerColor = isWhite ? 'w' : 'b';
 
-    // ⏱ Server-side time enforcement
-    const clockState = clockService.processMove(game, playerColor);
+    // ⏱ Server-side time enforcement (with increment)
+    const clockState = clockService.processMove(game, playerColor, game.increment || 0);
     if (clockState.isTimeout) {
       const winnerColor = playerColor === 'w' ? 'black' : 'white';
       const winnerId = winnerColor === 'white' ? game.white_player : game.black_player;
@@ -458,6 +461,95 @@ router.post('/:id/abort', authenticate, async (req, res) => {
 
 // In-memory draw offer tracking (resets on server restart)
 let drawOffers = new Map();
+
+/**
+ * POST /api/games/:id/ai-move
+ * Request the AI to make a move. Only for AI games.
+ * This endpoint makes Stockfish compute and execute a move.
+ */
+router.post('/:id/ai-move', authenticate, async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.id);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (!game.is_ai) return res.status(400).json({ error: 'Not an AI game' });
+    if (game.status !== 'active') return res.status(400).json({ error: 'Game is not active' });
+
+    const isWhite = game.white_player === req.user.id;
+    if (!isWhite && game.black_player !== req.user.id) {
+      return res.status(403).json({ error: 'Not a player' });
+    }
+
+    const playerColor = isWhite ? 'w' : 'b';
+    const chess = chessEngine.createGame(game.fen);
+
+    // Check it's AI's turn
+    const aiColor = playerColor === 'w' ? 'b' : 'w';
+    if (chessEngine.getCurrentTurn(chess) !== aiColor) {
+      return res.status(400).json({ error: 'It is not the AI\'s turn' });
+    }
+
+    // Get AI best move
+    const aiService = require('../services/aiService');
+    const uciMove = await aiService.getBestMove(game.fen, { depth: 10, moveTime: 800 });
+    if (!uciMove) return res.status(500).json({ error: 'AI could not compute a move' });
+
+    const from = uciMove.substring(0, 2);
+    const to = uciMove.substring(2, 4);
+    const promotion = uciMove.length > 4 ? uciMove.substring(4) : null;
+
+    // Execute the move using the same logic as the move endpoint
+    const moveResult = chessEngine.makeMove(chess, { from, to, promotion });
+    if (!moveResult.success) return res.status(400).json({ error: moveResult.error });
+
+    // Save move
+    const moveCount = await Game.getMoves(req.params.id);
+    const moveNumber = moveCount.length + 1;
+    await Game.addMove({
+      gameId: req.params.id, moveNumber, playerColor: aiColor,
+      fromSquare: from, toSquare: to, promotion: promotion || null,
+      fenBefore: moveResult.fenBefore, fenAfter: moveResult.fenAfter,
+    });
+
+    // Clock enforcement
+    const clockState = clockService.processMove(game, aiColor, game.increment || 0);
+    await Game.updateTime(req.params.id, clockState.whiteTime, clockState.blackTime);
+
+    // Update game state
+    const state = chessEngine.getGameState(chess);
+    const updateData = { fen: state.fen, pgn: state.pgn };
+    if (state.isGameOver) {
+      updateData.status = 'completed';
+      updateData.ended_at = new Date();
+      if (state.isCheckmate) {
+        const winnerColor = state.turn === 'w' ? 'black' : 'white';
+        updateData.winner = winnerColor === 'white' ? game.white_player : game.black_player;
+        updateData.result = `${winnerColor}_win`;
+      } else if (state.isDraw || state.isStalemate) {
+        updateData.result = 'draw';
+      }
+    }
+    await Game.updateGame(req.params.id, updateData);
+
+    if (updateData.status === 'completed') {
+      await updateRatingsForResult(game, updateData.result);
+    }
+
+    const updatedGame = await Game.findById(req.params.id);
+    logger.info(`AI move: ${aiColor} ${from}→${to} in game ${req.params.id}`);
+
+    return res.json({
+      move: moveResult.move, game: updatedGame,
+      fen: moveResult.fenAfter, isCheck: state.isCheck,
+      isGameOver: state.isGameOver, isCheckmate: state.isCheckmate,
+      isDraw: state.isDraw, result: updateData.result || null,
+      whiteTime: updatedGame.white_time, blackTime: updatedGame.black_time,
+      ai: true,
+    });
+  } catch (err) {
+    logger.error('AI move error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 /**
  * GET /api/games/:id/pgn

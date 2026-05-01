@@ -166,7 +166,7 @@ const setupGameHandler = (io) => {
         const playerColor = connInfo.color[0]; // 'w' or 'b'
 
         // ⏱ Server-side time enforcement
-        const clockState = clockService.processMove(game, playerColor);
+        const clockState = clockService.processMove(game, playerColor, game.increment || 0);
         if (clockState.isTimeout) {
           const winnerColor = playerColor === 'w' ? 'b' : 'w';
           const winnerId = winnerColor === 'w' ? game.white_player : game.black_player;

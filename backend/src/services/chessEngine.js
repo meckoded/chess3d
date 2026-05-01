@@ -79,6 +79,10 @@ const isCorrectTurn = (game, color) => {
   return game.turn() === color;
 };
 
+const getCurrentTurn = (game) => {
+  return game.turn();
+};
+
 module.exports = {
   createGame,
   makeMove,
@@ -86,4 +90,5 @@ module.exports = {
   getMoves,
   loadPgn,
   isCorrectTurn,
+  getCurrentTurn,
 };

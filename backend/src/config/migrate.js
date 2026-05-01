@@ -42,10 +42,12 @@ const migrate = async () => {
         fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         pgn TEXT DEFAULT '',
         status TEXT DEFAULT 'waiting' CHECK(status IN ('waiting','active','completed','draw','resigned','aborted')),
-        result TEXT CHECK(result IN ('white','black','draw',NULL)),
+        result TEXT CHECK(result IN ('white_win','black_win','draw',NULL)),
         time_control INTEGER DEFAULT 600,
+        increment INTEGER DEFAULT 0,
         white_time INTEGER,
         black_time INTEGER,
+        is_ai INTEGER DEFAULT 0,
         last_move_at TEXT,
         ended_at TEXT,
         winner TEXT REFERENCES users(id),
@@ -84,6 +86,10 @@ const migrate = async () => {
     db.run(`
       CREATE INDEX IF NOT EXISTS idx_moves_game ON moves(game_id, move_number)
     `);
+
+    // ─── Migrate existing databases (add new columns) ───
+    try { db.run('ALTER TABLE games ADD COLUMN increment INTEGER DEFAULT 0'); } catch (_) {}
+    try { db.run('ALTER TABLE games ADD COLUMN is_ai INTEGER DEFAULT 0'); } catch (_) {}
 
     logger.info('Database migrations completed successfully');
   } catch (err) {
