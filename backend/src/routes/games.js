@@ -72,7 +72,9 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Game not found' });
     }
 
-    return res.json({ game });
+    const moves = await Game.getMoves(req.params.id);
+
+    return res.json({ game, moves });
   } catch (err) {
     logger.error('Get game error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -286,6 +288,20 @@ router.post('/:id/resign', authenticate, async (req, res) => {
       result,
       ended_at: new Date(),
     });
+
+    // Update ELO ratings
+    try {
+      const whitePlayer = await User.findById(game.white_player);
+      const blackPlayer = await User.findById(game.black_player);
+      const resultType = result === 'white_win' ? 'white' : 'black';
+      const ratings = ratingService.calculateNewRatings(whitePlayer.rating, blackPlayer.rating, resultType);
+      const whiteRT = resultType === 'white' ? 'win' : 'loss';
+      const blackRT = resultType === 'black' ? 'win' : 'loss';
+      await User.updateRating(game.white_player, ratings.whiteNewRating, whiteRT);
+      await User.updateRating(game.black_player, ratings.blackNewRating, blackRT);
+    } catch (e) {
+      logger.error('Resign ELO error:', e);
+    }
 
     const finalGame = await Game.findById(req.params.id);
 
