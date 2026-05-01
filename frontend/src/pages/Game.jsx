@@ -84,7 +84,12 @@ export default function Game() {
     onGameOver: (data) => {
       setResult(data);
       setCheckStatus(false, data.byCheckmate || false, data.byDraw || false, false);
-      if (data.ratingChanges) {
+      if (data.byTimeout) {
+        const meTimedOut = (playerColor === 'white' && data.timeoutColor === 'white') ||
+                           (playerColor === 'black' && data.timeoutColor === 'black');
+        toast(meTimedOut ? '⏰ You lost on time!' : '⏰ Opponent lost on time! You win!',
+              { icon: '⏰' });
+      } else if (data.ratingChanges) {
         toast.success(`Game over! Rating: ${data.ratingChanges.white.change > 0 ? '+' : ''}${data.ratingChanges.white.change}`);
       } else {
         toast.success('Game over!');
@@ -216,6 +221,24 @@ export default function Game() {
     toast('Draw offer declined', { icon: '✖️' });
   };
 
+  const handlePGNDownload = async () => {
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/games/${id}/pgn`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `game-${id}.pgn`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('PGN downloaded!');
+    } catch (e) { toast.error('Could not download PGN'); }
+  };
+
   const handleSendChat = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -296,6 +319,9 @@ export default function Game() {
               Rating: {result.ratingChanges.white.change > 0 ? '+' : ''}{result.ratingChanges.white.change}
             </span>
           )}
+          <button onClick={handlePGNDownload} className="ml-4 px-3 py-1 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-all">
+            📥 PGN
+          </button>
         </motion.div>
       )}
 

@@ -4,6 +4,7 @@ const authenticate = require('../middleware/auth');
 const { moveLimiter } = require('../middleware/rateLimiter');
 const chessEngine = require('../services/chessEngine');
 const ratingService = require('../services/rating');
+const clockService = require('../services/clock');
 const User = require('../models/User');
 const logger = require('../config/logger');
 
@@ -148,6 +149,33 @@ router.post('/:id/move', authenticate, moveLimiter, async (req, res) => {
 
     const playerColor = isWhite ? 'w' : 'b';
 
+    // ⏱ Server-side time enforcement
+    const clockState = clockService.processMove(game, playerColor);
+    if (clockState.isTimeout) {
+      const winnerColor = playerColor === 'w' ? 'black' : 'white';
+      const winnerId = winnerColor === 'white' ? game.white_player : game.black_player;
+      await Game.updateGame(req.params.id, {
+        status: 'completed',
+        result: `${winnerColor}_win`,
+        winner: winnerId,
+        white_time: clockState.whiteTime,
+        black_time: clockState.blackTime,
+        ended_at: new Date(),
+      });
+      await updateRatingsForResult(game, `${winnerColor}_win`);
+      const finalGame = await Game.findById(req.params.id);
+      return res.json({
+        game: finalGame,
+        isGameOver: true,
+        result: `${winnerColor}_win`,
+        timeout: true,
+        timeoutBy: playerColor === 'w' ? 'white' : 'black',
+      });
+    }
+
+    // Update clock in DB
+    await Game.updateTime(req.params.id, clockState.whiteTime, clockState.blackTime);
+
     // Create chess engine instance from current FEN
     const chess = chessEngine.createGame(game.fen);
 
@@ -249,6 +277,8 @@ router.post('/:id/move', authenticate, moveLimiter, async (req, res) => {
       isCheckmate: state.isCheckmate,
       isDraw: state.isDraw,
       result: updateData.result || null,
+      whiteTime: updatedGame.white_time,
+      blackTime: updatedGame.black_time,
     });
   } catch (err) {
     logger.error('Make move error:', err);
@@ -428,5 +458,66 @@ router.post('/:id/abort', authenticate, async (req, res) => {
 
 // In-memory draw offer tracking (resets on server restart)
 let drawOffers = new Map();
+
+/**
+ * GET /api/games/:id/pgn
+ * Export game as PGN.
+ */
+router.get('/:id/pgn', authenticate, async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.id);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.status !== 'completed') return res.status(400).json({ error: 'Game is not yet completed' });
+
+    const moves = await Game.getMoves(req.params.id);
+    const chess = chessEngine.createGame();
+    for (const m of moves) {
+      chessEngine.makeMove(chess, { from: m.from_square, to: m.to_square, promotion: m.promotion });
+    }
+
+    const date = new Date(game.created_at).toISOString().split('T')[0].replace(/-/g, '.');
+    const resultStr = game.result === 'white_win' ? '1-0' : game.result === 'black_win' ? '0-1' : '1/2-1/2';
+
+    const pgn = [
+      `[Event "Chess3D Game"]`,
+      `[Site "Chess3D"]`,
+      `[Date "${date}"]`,
+      `[White "${game.white_username || 'White'}"]`,
+      `[Black "${game.black_username || 'Black'}"]`,
+      `[Result "${resultStr}"]`,
+      `[TimeControl "${game.time_control}"]`,
+      game.pgn ? '' : '',
+      game.pgn ? game.pgn : '',
+      resultStr,
+    ].filter(Boolean).join('\n');
+
+    res.set('Content-Type', 'application/x-chess-pgn');
+    res.set('Content-Disposition', `attachment; filename="game-${req.params.id}.pgn"`);
+    return res.send(pgn);
+  } catch (err) {
+    logger.error('PGN export error:', err);
+    return res.status(500).json({ error: 'Failed to export PGN' });
+  }
+});
+
+// Helper: update ratings for a result type
+const updateRatingsForResult = async (game, resultStr) => {
+  try {
+    const whitePlayer = await User.findById(game.white_player);
+    const blackPlayer = await User.findById(game.black_player);
+    let resultType;
+    if (resultStr === 'white_win') resultType = 'white';
+    else if (resultStr === 'black_win') resultType = 'black';
+    else resultType = 'draw';
+
+    const ratings = ratingService.calculateNewRatings(whitePlayer.rating, blackPlayer.rating, resultType);
+    const whiteRT = resultType === 'white' ? 'win' : resultType === 'black' ? 'loss' : 'draw';
+    const blackRT = resultType === 'black' ? 'win' : resultType === 'white' ? 'loss' : 'draw';
+    await User.updateRating(game.white_player, ratings.whiteNewRating, whiteRT);
+    await User.updateRating(game.black_player, ratings.blackNewRating, blackRT);
+  } catch (e) {
+    logger.error('Rating update error:', e);
+  }
+};
 
 module.exports = router;

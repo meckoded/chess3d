@@ -3,6 +3,7 @@ const Game = require('../models/Game');
 const User = require('../models/User');
 const chessEngine = require('../services/chessEngine');
 const ratingService = require('../services/rating');
+const clockService = require('../services/clock');
 const logger = require('../config/logger');
 
 // Track active socket connections: { socketId: { userId, username, gameId, color } }
@@ -163,6 +164,41 @@ const setupGameHandler = (io) => {
         }
 
         const playerColor = connInfo.color[0]; // 'w' or 'b'
+
+        // ⏱ Server-side time enforcement
+        const clockState = clockService.processMove(game, playerColor);
+        if (clockState.isTimeout) {
+          const winnerColor = playerColor === 'w' ? 'b' : 'w';
+          const winnerId = winnerColor === 'w' ? game.white_player : game.black_player;
+          await Game.updateGame(gameId, {
+            status: 'completed',
+            result: `${winnerColor}_win`,
+            winner: winnerId,
+            white_time: clockState.whiteTime,
+            black_time: clockState.blackTime,
+            ended_at: new Date(),
+          });
+          // Update ratings
+          try {
+            const wp = await User.findById(game.white_player);
+            const bp = await User.findById(game.black_player);
+            const rt = winnerColor === 'white' ? 'white' : 'black';
+            const ratings = ratingService.calculateNewRatings(wp.rating, bp.rating, rt);
+            await User.updateRating(game.white_player, ratings.whiteNewRating, rt === 'white' ? 'win' : 'loss');
+            await User.updateRating(game.black_player, ratings.blackNewRating, rt === 'black' ? 'win' : 'loss');
+          } catch (e) { logger.error('Timeout ELO error:', e); }
+
+          const finalGame = await Game.findById(gameId);
+          io.to(`game:${gameId}`).emit('game_over', {
+            result: `${winnerColor}_win`,
+            winner: winnerId,
+            byTimeout: true,
+            timeoutColor: playerColor === 'w' ? 'white' : 'black',
+            game: finalGame,
+          });
+          return;
+        }
+        await Game.updateTime(gameId, clockState.whiteTime, clockState.blackTime);
 
         // Create chess instance
         const chess = chessEngine.createGame(game.fen);

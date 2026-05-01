@@ -129,6 +129,22 @@ echo "$R" | grep -q '"completed"' && ok "Resign after moves" || bad "Resign afte
 R=$(curl -s $BASE/some-react-route)
 echo "$R" | grep -q '<div id="root">' && ok "SPA fallback" || bad "SPA fallback"
 
+# ─── PGN export ───
+# Finish another game for PGN
+R=$(curl -s -X POST $BASE/api/games/create -H "Authorization: Bearer $TOK_A" -H 'Content-Type: application/json' -d '{"timeControl":600}')
+GID6=$(echo "$R" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('game',{}).get('id',''))" 2>/dev/null)
+curl -s -X POST $BASE/api/games/$GID6/join -H "Authorization: Bearer $TOK_B" > /dev/null
+curl -s -X POST $BASE/api/games/$GID6/move -H "Authorization: Bearer $TOK_A" -H 'Content-Type: application/json' -d '{"from":"e2","to":"e4"}' > /dev/null
+curl -s -X POST $BASE/api/games/$GID6/move -H "Authorization: Bearer $TOK_B" -H 'Content-Type: application/json' -d '{"from":"e7","to":"e5"}' > /dev/null
+# Resign the unfinished game to create a completed game
+curl -s -X POST $BASE/api/games/$GID6/resign -H "Authorization: Bearer $TOK_A" > /dev/null
+R=$(curl -s $BASE/api/games/$GID6/pgn -H "Authorization: Bearer $TOK_A")
+echo "$R" | grep -q 'Result' && ok "PGN export" || bad "PGN export"
+
+# ─── Clock enforcement on move ───
+R=$(curl -s -X POST $BASE/api/games/$GID/move -H "Authorization: Bearer $TOK_A" -H 'Content-Type: application/json' -d '{"from":"g1","to":"f3"}') 2>/dev/null
+echo "$R" | grep -q '"whiteTime"' && ok "Clock time in move response" || bad "Clock time in move"
+
 # ─── Admin endpoints ───
 ADMINU="e2eadmin_$(date +%s)"
 ADMIN=$(curl -s -X POST $BASE/api/auth/register -H 'Content-Type: application/json' -d "{\"username\":\"$ADMINU\",\"email\":\"${ADMINU}@test.com\",\"password\":\"$PWD\"}")
