@@ -6,9 +6,12 @@ const ctx = typeof window !== 'undefined' ? new (window.AudioContext || window.w
 // Keep track of last play time to avoid audio spam
 let lastPlay = 0;
 let _muted = false;
+let _volume = 0.15; // global volume multiplier
 
 export const setMuted = (val) => { _muted = val; };
 export const isMuted = () => _muted;
+export const setVolume = (val) => { _volume = Math.max(0, Math.min(1, val)); };
+export const getVolume = () => _volume;
 
 const play = (freq, duration, type = 'sine', volume = 0.15) => {
   if (!ctx || _muted) return;
@@ -24,7 +27,7 @@ const play = (freq, duration, type = 'sine', volume = 0.15) => {
     const gain = ctx.createGain();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.setValueAtTime(volume * _volume, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);

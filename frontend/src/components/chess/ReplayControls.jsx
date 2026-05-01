@@ -99,14 +99,16 @@ export default function ReplayControls({ moves, fen, onSeek }) {
           <button
             onClick={goToStart}
             className="px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400 transition-all"
-            title="Start"
+            title="Go to start"
+            aria-label="Go to start of game"
           >
             ⏮
           </button>
           <button
             onClick={goBack}
             className="px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400 transition-all"
-            title="Previous"
+            title="Previous move"
+            aria-label="Previous move"
           >
             ◀
           </button>
@@ -114,20 +116,23 @@ export default function ReplayControls({ moves, fen, onSeek }) {
             onClick={togglePlay}
             className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 hover:bg-amber-400 text-slate-900 transition-all"
             title={isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? 'Pause replay' : 'Play replay'}
           >
             {isPlaying ? '⏸' : '▶'}
           </button>
           <button
             onClick={goForward}
             className="px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400 transition-all"
-            title="Next"
+            title="Next move"
+            aria-label="Next move"
           >
             ▶
           </button>
           <button
             onClick={goToEnd}
             className="px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-400 transition-all"
-            title="End"
+            title="Go to end"
+            aria-label="Go to end of game"
           >
             ⏭
           </button>

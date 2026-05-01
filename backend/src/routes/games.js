@@ -7,6 +7,7 @@ const ratingService = require('../services/rating');
 const clockService = require('../services/clock');
 const User = require('../models/User');
 const logger = require('../config/logger');
+const aiService = require('../services/aiService');
 
 const router = express.Router();
 
@@ -550,6 +551,23 @@ router.post('/:id/ai-move', authenticate, async (req, res) => {
   } catch (err) {
     logger.error('AI move error:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/evaluate
+ * Get Stockfish evaluation of current position.
+ */
+router.post('/:id/evaluate', authenticate, async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.id);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+
+    const score = await aiService.evaluate(game.fen, { depth: 14 });
+    return res.json({ score });
+  } catch (err) {
+    logger.error('Evaluate error:', err);
+    return res.status(500).json({ error: 'Evaluation failed' });
   }
 });
 
