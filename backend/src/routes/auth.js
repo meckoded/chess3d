@@ -86,7 +86,7 @@ router.post('/register', authLimiter, async (req, res) => {
     return res.status(201).json({ token, refreshToken, user: newUser });
   } catch (err) {
     logger.error('Registration error:', err);
-    return res.status(500).json({ error: err.message, stack: err.stack });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -131,7 +131,7 @@ router.post('/login', authLimiter, async (req, res) => {
     return res.json({ token, refreshToken, user: userWithoutPassword });
   } catch (err) {
     logger.error('Login error:', err);
-    return res.status(500).json({ error: err.message, stack: err.stack });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -182,6 +182,42 @@ router.get('/me', authenticate, async (req, res) => {
     return res.json({ user });
   } catch (err) {
     logger.error('Get me error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/setup
+ * One-time admin setup: promote a user to admin role.
+ * Protected by ADMIN_SETUP_KEY env var.
+ */
+router.post('/setup', async (req, res) => {
+  try {
+    const { username, setupKey } = req.body;
+    const expectedKey = process.env.ADMIN_SETUP_KEY || 'setup-chess3d-admin-2026';
+
+    if (!setupKey || setupKey !== expectedKey) {
+      return res.status(403).json({ error: 'Invalid setup key' });
+    }
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    const user = await User.findByUsername(username);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      return res.json({ message: 'User is already admin', username });
+    }
+
+    await User.setRole(user.id, 'admin');
+    logger.info('Admin setup: ' + username + ' promoted to admin');
+    return res.json({ success: true, username, role: 'admin' });
+  } catch (err) {
+    logger.error('Admin setup error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
