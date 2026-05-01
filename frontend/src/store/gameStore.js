@@ -4,7 +4,7 @@ const useGameStore = create((set, get) => ({
   // Current game data
   gameId: null,
   fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-  gameState: 'waiting', // waiting | active | finished
+  gameState: 'waiting', // waiting | active | completed
   turn: 'w',
   players: {},
   moves: [],
@@ -21,6 +21,10 @@ const useGameStore = create((set, get) => ({
   // Opponent info
   opponent: null,
   playerColor: null,
+
+  // Draw offer state
+  drawOfferedBy: null, // who offered draw (opponent's username)
+  drawOfferedByMe: false, // did I offer the draw?
 
   // Game list (for lobby)
   games: [],
@@ -54,7 +58,7 @@ const useGameStore = create((set, get) => ({
 
   updateTimers: (timers) => set({ timers }),
 
-  setResult: (result) => set({ result, gameState: 'finished' }),
+  setResult: (result) => set({ result, gameState: 'completed' }),
 
   setLegalMoves: (legalMoves) => set({ legalMoves }),
 
@@ -66,6 +70,12 @@ const useGameStore = create((set, get) => ({
   setOpponent: (opponent) => set({ opponent }),
 
   setPlayerColor: (playerColor) => set({ playerColor }),
+
+  setDrawOffered: (drawOfferedBy, drawOfferedByMe) =>
+    set({ drawOfferedBy, drawOfferedByMe: !!drawOfferedByMe }),
+
+  clearDrawOffer: () =>
+    set({ drawOfferedBy: null, drawOfferedByMe: false }),
 
   setGames: (games) =>
     set({
@@ -113,6 +123,8 @@ const useGameStore = create((set, get) => ({
       isDraw: false,
       opponent: null,
       playerColor: null,
+      drawOfferedBy: null,
+      drawOfferedByMe: false,
       gameMessages: [],
     }),
 }));

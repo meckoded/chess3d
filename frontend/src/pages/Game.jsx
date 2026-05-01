@@ -18,10 +18,12 @@ export default function Game() {
   const {
     fen, turn, gameState, players, moves, isCheck, isCheckmate, isDraw, isStalemate,
     result, legalMoves, selectedSquare, playerColor, opponent, gameMessages,
+    drawOfferedBy, drawOfferedByMe, timeControl,
     setGameData, setFen, setGameState, setTurn, setPlayers, setMoves,
     setResult, setLegalMoves, setSelectedSquare, setCheckStatus,
     setOpponent, setPlayerColor, addMove, addGameMessage, showPromotionDialog, hidePromotionDialog,
     showPromotion, promotionCallback, promotionSquare,
+    setDrawOffered, clearDrawOffer,
   } = useGameStore();
   const [loading, setLoading] = useState(true);
   const [resigning, setResigning] = useState(false);
@@ -46,6 +48,14 @@ export default function Game() {
           moves: data.moves || [],
           timeControl: g.time_control,
         });
+        // Build result info for completed games
+        if (g.status === 'completed' && g.result) {
+          setResult({
+            result: g.result,
+            winner: g.winner,
+            game: g,
+          });
+        }
         const color = g.white_player === user.id ? 'white' : g.black_player === user.id ? 'black' : null;
         if (color) {
           setPlayerColor(color);
@@ -61,7 +71,7 @@ export default function Game() {
   }, [id]);
 
   // Socket connection for real-time updates
-  useSocket({
+  const socket = useSocket({
     gameId: id,
     onGameUpdate: (data) => {
       if (data.game) setGameData({ gameState: data.game.status });
@@ -72,7 +82,7 @@ export default function Game() {
       if (data.playedBy && data.move) addMove(data.move);
     },
     onGameOver: (data) => {
-      setResult(data.result);
+      setResult(data);
       setCheckStatus(false, data.byCheckmate || false, data.byDraw || false, false);
       if (data.ratingChanges) {
         toast.success(`Game over! Rating: ${data.ratingChanges.white.change > 0 ? '+' : ''}${data.ratingChanges.white.change}`);
@@ -92,6 +102,14 @@ export default function Game() {
     },
     onMoveError: (data) => {
       toast.error(data.message);
+    },
+    onDrawOffered: (data) => {
+      setDrawOffered(data.offeredBy, false);
+      toast(`${data.offeredBy} offers a draw`, { icon: '🤝' });
+    },
+    onDrawDeclined: () => {
+      clearDrawOffer();
+      toast('Draw offer declined', { icon: '✖️' });
     },
   });
 
@@ -125,11 +143,16 @@ export default function Game() {
         const from = selectedSquare;
         const to = square;
 
-        // Check for promotion
-        const isPawn = fen.split(' ')[0].split('/')[turn === 'b' ? 0 : 7]?.includes('p') || true;
-        const isPromotionRank = turn === 'w' ? square.endsWith('8') : square.endsWith('1');
+        // Check for promotion — pawn reaching final rank
+        const placement = fen.split(' ')[0];
+        const ranks = placement.split('/');
+        const fromRank = turn === 'w' ? 8 - parseInt(from[1]) : parseInt(from[1]) - 1;
+        const fromPiece = ranks[fromRank]?.[from.charCodeAt(0) - 97];
+        const isPawnMove = fromPiece === (turn === 'w' ? 'P' : 'p');
+        const isPromotionRank = turn === 'w' ? to.endsWith('8') : to.endsWith('1');
+        const needsPromotion = isPawnMove && isPromotionRank;
 
-        if (isPromotionRank) {
+        if (needsPromotion) {
           showPromotionDialog(square, (promotion) => {
             api.post(`/games/${id}/move`, { from, to, promotion });
             hidePromotionDialog();
@@ -165,9 +188,38 @@ export default function Game() {
     }
   };
 
+  const handleDrawOffer = async () => {
+    try {
+      await api.post(`/games/${id}/draw`, { action: 'offer' });
+      setDrawOffered(user.username, true);
+      socket?.emit('draw_offer', { gameId: id });
+      toast.success('Draw offered');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to offer draw');
+    }
+  };
+
+  const handleDrawAccept = async () => {
+    try {
+      await api.post(`/games/${id}/draw`, { action: 'accept' });
+      clearDrawOffer();
+      socket?.emit('draw_accept', { gameId: id });
+      toast.success('Draw accepted!');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to accept draw');
+    }
+  };
+
+  const handleDrawDecline = () => {
+    clearDrawOffer();
+    socket?.emit('draw_decline', { gameId: id });
+    toast('Draw offer declined', { icon: '✖️' });
+  };
+
   const handleSendChat = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
+    socket?.emit('chat_message', { gameId: id, message: chatInput.trim() });
     addGameMessage({ from: user.username, message: chatInput.trim(), userId: user.id, timestamp: new Date().toISOString() });
     setChatInput('');
   };
@@ -214,6 +266,9 @@ export default function Game() {
         <div className="flex items-center gap-3">
           {!isGameOver && playerColor && (
             <>
+              <button onClick={handleDrawOffer} disabled={drawOfferedByMe} className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-sm font-medium rounded-lg transition-all disabled:opacity-40" title="Offer Draw">
+                🤝 Draw
+              </button>
               <button onClick={handleResign} disabled={resigning} className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium rounded-lg transition-all">
                 Resign
               </button>
@@ -242,6 +297,34 @@ export default function Game() {
             </span>
           )}
         </motion.div>
+      )}
+
+      {/* Draw Offer Notification */}
+      {!isGameOver && drawOfferedBy && drawOfferedBy !== user.username && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between"
+        >
+          <span className="text-amber-400 font-medium">
+            🤝 {drawOfferedBy} offers a draw
+          </span>
+          <div className="flex gap-2">
+            <button onClick={handleDrawAccept} className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-all">
+              Accept
+            </button>
+            <button onClick={handleDrawDecline} className="px-4 py-1.5 bg-slate-600 hover:bg-slate-500 text-white text-sm font-medium rounded-lg transition-all">
+              Decline
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Timer Bar */}
+      {!isGameOver && timeControl && (
+        <div className="mb-4">
+          <GameTimer timeControl={timeControl} turn={turn} isGameOver={isGameOver} />
+        </div>
       )}
 
       {/* Main Game Layout */}

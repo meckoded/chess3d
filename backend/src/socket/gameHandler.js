@@ -424,6 +424,36 @@ const setupGameHandler = (io) => {
     socket.on('ping', () => {
       socket.emit('pong', { timestamp: Date.now() });
     });
+
+    /**
+     * draw_offer — Forward draw offer to opponent.
+     */
+    socket.on('draw_offer', (data) => {
+      const { gameId } = data;
+      if (!gameId) return;
+      socket.to(`game:${gameId}`).emit('draw_offered', {
+        offeredBy: socket.username,
+        userId: socket.userId,
+      });
+    });
+
+    /**
+     * draw_accept — Forward draw acceptance to opponent.
+     */
+    socket.on('draw_accept', (data) => {
+      const { gameId } = data;
+      if (!gameId) return;
+      socket.to(`game:${gameId}`).emit('draw_accepted', { by: socket.username });
+    });
+
+    /**
+     * draw_decline — Forward draw decline to opponent.
+     */
+    socket.on('draw_decline', (data) => {
+      const { gameId } = data;
+      if (!gameId) return;
+      socket.to(`game:${gameId}`).emit('draw_declined', { by: socket.username });
+    });
   });
 };
 

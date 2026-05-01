@@ -64,6 +64,27 @@ const migrate = async () => {
       CREATE INDEX IF NOT EXISTS idx_games_black ON games(black_player)
     `);
 
+    // Moves table — tracks each move in a game
+    db.run(`
+      CREATE TABLE IF NOT EXISTS moves (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id TEXT NOT NULL,
+        move_number INTEGER NOT NULL,
+        player_color TEXT NOT NULL CHECK(player_color IN ('w','b')),
+        from_square TEXT NOT NULL,
+        to_square TEXT NOT NULL,
+        promotion TEXT,
+        fen_before TEXT NOT NULL,
+        fen_after TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (game_id) REFERENCES games(id)
+      )
+    `);
+
+    db.run(`
+      CREATE INDEX IF NOT EXISTS idx_moves_game ON moves(game_id, move_number)
+    `);
+
     logger.info('Database migrations completed successfully');
   } catch (err) {
     logger.error('Migration error:', err);

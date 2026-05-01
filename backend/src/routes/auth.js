@@ -96,22 +96,28 @@ router.post('/register', authLimiter, async (req, res) => {
  */
 router.post('/login', authLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, email, username, password } = req.body;
+    // Support 'identifier', 'email', or 'username' as the lookup field
+    const lookupValue = (identifier || email || username || '').toLowerCase().trim();
+    const lookupPassword = password;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    if (!lookupValue || !lookupPassword) {
+      return res.status(400).json({ error: 'identifier (or email/username) and password are required' });
     }
 
-    // Find user
-    const user = await User.findByEmail(email.toLowerCase());
+    // Try email first, then username
+    let user = await User.findByEmail(lookupValue);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      user = await User.findByUsername(lookupValue);
+    }
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    const isValidPassword = await bcrypt.compare(lookupPassword, user.password_hash);
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Generate tokens
