@@ -141,6 +141,10 @@ curl -s -X POST $BASE/api/games/$GID6/resign -H "Authorization: Bearer $TOK_A" >
 R=$(curl -s $BASE/api/games/$GID6/pgn -H "Authorization: Bearer $TOK_A")
 echo "$R" | grep -q 'Result' && ok "PGN export" || bad "PGN export"
 
+# ─── Evaluate position (Stockfish) ───
+R=$(curl -s -X POST $BASE/api/games/$GID/evaluate -H "Authorization: Bearer $TOK_A")
+echo "$R" | grep -q '"score"' && ok "Evaluate position" || bad "Evaluate position"
+
 # ─── Clock enforcement on move ───
 R=$(curl -s -X POST $BASE/api/games/$GID/move -H "Authorization: Bearer $TOK_A" -H 'Content-Type: application/json' -d '{"from":"g1","to":"f3"}') 2>/dev/null
 echo "$R" | grep -q '"whiteTime"' && ok "Clock time in move response" || bad "Clock time in move"
