@@ -333,4 +333,100 @@ router.get('/:id/moves/:square', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/games/:id/draw
+ * Offer or accept a draw. If both players agree, game ends in draw.
+ */
+router.post('/:id/draw', authenticate, async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.id);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.status !== 'active') return res.status(400).json({ error: 'Game is not active' });
+
+    const isWhite = game.white_player === req.user.id;
+    const isBlack = game.black_player === req.user.id;
+    if (!isWhite && !isBlack) return res.status(403).json({ error: 'Not a player' });
+
+    const { action } = req.body; // 'offer' or 'accept'
+
+    if (action === 'offer') {
+      // Store draw offer state (in-memory for now)
+      if (!drawOffers) drawOffers = new Map();
+      drawOffers.set(req.params.id, req.user.id);
+      logger.info(`${req.user.username} offered draw in game ${req.params.id}`);
+      return res.json({ message: 'Draw offered', offeredBy: req.user.id });
+    }
+
+    if (action === 'accept') {
+      if (!drawOffers || !drawOffers.has(req.params.id)) {
+        return res.status(400).json({ error: 'No draw offer pending' });
+      }
+      if (drawOffers.get(req.params.id) === req.user.id) {
+        return res.status(400).json({ error: 'Cannot accept your own draw offer' });
+      }
+
+      // Both agreed — end game as draw
+      await Game.updateGame(req.params.id, {
+        status: 'completed',
+        result: 'draw',
+        ended_at: new Date(),
+      });
+
+      // Update ELO
+      try {
+        const wp = await User.findById(game.white_player);
+        const bp = await User.findById(game.black_player);
+        const ratings = ratingService.calculateNewRatings(wp.rating, bp.rating, 'draw');
+        await User.updateRating(game.white_player, ratings.whiteNewRating, 'draw');
+        await User.updateRating(game.black_player, ratings.blackNewRating, 'draw');
+      } catch (e) { logger.error('Draw ELO error:', e); }
+
+      drawOffers.delete(req.params.id);
+      logger.info(`Game ${req.params.id}: draw agreed`);
+
+      return res.json({ game: await Game.findById(req.params.id), result: 'draw' });
+    }
+
+    return res.status(400).json({ error: 'action must be "offer" or "accept"' });
+  } catch (err) {
+    logger.error('Draw error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/abort
+ * Abort a game (only allowed if no moves made, or by agreement).
+ */
+router.post('/:id/abort', authenticate, async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.id);
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+
+    const isWhite = game.white_player === req.user.id;
+    const isBlack = game.black_player === req.user.id;
+    if (!isWhite && !isBlack) return res.status(403).json({ error: 'Not a player' });
+
+    // Abort only allowed if game is waiting or active with no moves
+    const moves = await Game.getMoves(req.params.id);
+    if (game.status === 'waiting') {
+      await Game.abortGame(req.params.id);
+      return res.json({ message: 'Game aborted' });
+    }
+
+    if (game.status === 'active' && moves.length === 0) {
+      await Game.abortGame(req.params.id);
+      return res.json({ message: 'Game aborted' });
+    }
+
+    return res.status(400).json({ error: 'Cannot abort game after moves have been made' });
+  } catch (err) {
+    logger.error('Abort error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// In-memory draw offer tracking (resets on server restart)
+let drawOffers = new Map();
+
 module.exports = router;
