@@ -2,7 +2,6 @@ const express = require('express');
 const User = require('../models/User');
 const Game = require('../models/Game');
 const authenticate = require('../middleware/auth');
-const ratingService = require('../services/rating');
 const logger = require('../config/logger');
 
 const router = express.Router();
@@ -14,25 +13,26 @@ const router = express.Router();
 router.get('/profile', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    const gameStats = await Game.getUserGameStats(req.user.id);
+    const games = await Game.findByUser(req.user.id);
+    const wins = games.filter(g => g.winner === req.user.id).length;
+    const losses = games.filter(g => g.status === 'completed' && g.winner && g.winner !== req.user.id && (g.white_player === req.user.id || g.black_player === req.user.id)).length;
+    const draws = games.filter(g => g.result === 'draw' && (g.white_player === req.user.id || g.black_player === req.user.id)).length;
+    const totalCompleted = wins + losses + draws;
 
     const profile = {
       ...user,
       gameStats: {
-        totalGames: parseInt(gameStats.total_games, 10),
-        wins: parseInt(gameStats.wins, 10),
-        losses: parseInt(gameStats.losses, 10),
-        draws: parseInt(gameStats.draws, 10),
-        activeGames: parseInt(gameStats.active_games, 10),
-        winRate: parseFloat(gameStats.win_rate),
+        totalGames: games.length,
+        wins,
+        losses,
+        draws,
+        activeGames: games.filter(g => g.status === 'active').length,
+        winRate: totalCompleted > 0 ? ((wins / totalCompleted) * 100).toFixed(1) : '0.0',
       },
     };
-
     return res.json({ profile });
   } catch (err) {
     logger.error('Get profile error:', err);
@@ -42,16 +42,11 @@ router.get('/profile', authenticate, async (req, res) => {
 
 /**
  * GET /api/users/leaderboard
- * Get the ELO rating leaderboard.
- * Query params: limit (default 50), timeframe (all|week|month)
  */
-router.get('/leaderboard', authenticate, async (req, res) => {
+router.get('/leaderboard', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
-    const timeframe = req.query.timeframe || null;
-
-    const leaderboard = await User.getLeaderboard(limit, timeframe);
-
+    const leaderboard = await User.getLeaderboard(limit);
     return res.json({ leaderboard });
   } catch (err) {
     logger.error('Leaderboard error:', err);
@@ -61,38 +56,30 @@ router.get('/leaderboard', authenticate, async (req, res) => {
 
 /**
  * GET /api/users/stats
- * Get detailed statistics for the current user.
  */
 router.get('/stats', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const gameStats = await Game.getUserGameStats(req.user.id);
-
-    const ratingClass = getRatingClass(user.rating);
-    const nextRatingTier = getNextRatingTier(user.rating);
-    const pointsToNextTier = nextRatingTier ? nextRatingTier.minRating - user.rating : 0;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const games = await Game.findByUser(req.user.id);
+    const wins = games.filter(g => g.winner === req.user.id).length;
+    const losses = games.filter(g => g.status === 'completed' && g.winner && g.winner !== req.user.id).length;
+    const draws = games.filter(g => g.result === 'draw').length;
+    const totalCompleted = wins + losses + draws;
 
     const stats = {
       rating: user.rating,
-      ratingClass,
-      nextRatingTier,
-      pointsToNextTier,
+      ratingClass: getRatingClass(user.rating),
       gamesPlayed: user.games_played,
       wins: user.wins,
       losses: user.losses,
       draws: user.draws,
-      totalGames: parseInt(gameStats.total_games, 10),
-      activeGames: parseInt(gameStats.active_games, 10),
-      winRate: parseFloat(gameStats.win_rate),
+      totalGames: games.length,
+      activeGames: games.filter(g => g.status === 'active' || g.status === 'waiting').length,
+      winRate: totalCompleted > 0 ? ((wins / totalCompleted) * 100).toFixed(1) : '0.0',
       joinedAt: user.created_at,
       lastActive: user.updated_at,
     };
-
     return res.json({ stats });
   } catch (err) {
     logger.error('Get stats error:', err);
@@ -101,69 +88,44 @@ router.get('/stats', authenticate, async (req, res) => {
 });
 
 /**
- * GET /api/users/search
- * Search for players by username.
- * Query params: q (search term), limit (default 10)
+ * PATCH /api/users/profile
+ * Update current user's profile.
  */
-router.get('/search', authenticate, async (req, res) => {
+router.patch('/profile', authenticate, async (req, res) => {
   try {
-    const { q } = req.query;
-
-    if (!q || q.trim().length === 0) {
-      return res.status(400).json({ error: 'Search query is required' });
+    const { username } = req.body;
+    if (!username || username.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters' });
     }
-
-    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
-    const players = await User.searchPlayers(q.trim(), limit);
-
-    return res.json({ players });
+    // Update username via the model
+    const db = require('../config/database');
+    const existing = db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, req.user.id]);
+    if (existing) {
+      return res.status(409).json({ error: 'Username already taken' });
+    }
+    db.run("UPDATE users SET username = ?, updated_at = datetime('now') WHERE id = ?", [username, req.user.id]);
+    const user = await User.findById(req.user.id);
+    return res.json({ user });
   } catch (err) {
-    logger.error('Search players error:', err);
+    logger.error('Update profile error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 /**
  * GET /api/users/:id
- * Get a user's public profile by ID.
  */
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const gameStats = await Game.getUserGameStats(req.params.id);
-
-    const publicProfile = {
-      id: user.id,
-      username: user.username,
-      rating: user.rating,
-      gamesPlayed: user.games_played,
-      wins: user.wins,
-      losses: user.losses,
-      draws: user.draws,
-      gameStats: {
-        totalGames: parseInt(gameStats.total_games, 10),
-        wins: parseInt(gameStats.wins, 10),
-        losses: parseInt(gameStats.losses, 10),
-        draws: parseInt(gameStats.draws, 10),
-        winRate: parseFloat(gameStats.win_rate),
-      },
-      createdAt: user.created_at,
-      lastActive: user.updated_at,
-    };
-
-    return res.json({ profile: publicProfile });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { password_hash, refresh_token, refresh_token_expires_at, email, ...publicUser } = user;
+    return res.json({ profile: publicUser });
   } catch (err) {
     logger.error('Get user error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// --- Helper functions ---
 
 const ratingClasses = [
   { name: 'Beginner', minRating: 0, maxRating: 999 },
@@ -175,17 +137,6 @@ const ratingClasses = [
   { name: 'Legend', minRating: 2500, maxRating: Infinity },
 ];
 
-const getRatingClass = (rating) => {
-  return ratingClasses.find((c) => rating >= c.minRating && rating <= c.maxRating)?.name || 'Beginner';
-};
-
-const getNextRatingTier = (rating) => {
-  for (const ratingClass of ratingClasses) {
-    if (rating < ratingClass.minRating) {
-      return ratingClass;
-    }
-  }
-  return null; // Already Legend tier
-};
+const getRatingClass = (rating) => ratingClasses.find(c => rating >= c.minRating && rating <= c.maxRating)?.name || 'Beginner';
 
 module.exports = router;

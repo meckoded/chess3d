@@ -1,0 +1,41 @@
+redirectsOrigin = "config"
+plugins = []
+headers = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "/home/node/.openclaw/workspace/coder/chess3d/frontend/dist"
+publishOrigin = "config"
+commandOrigin = "config"
+base = "/home/node/.openclaw/workspace/coder/chess3d/frontend"
+command = "npm run build"
+
+[build.environment]
+VITE_API_URL = "https://chess3d-api.onrender.com/api"
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200.0
+force = false
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]

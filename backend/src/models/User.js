@@ -1,121 +1,81 @@
+const crypto = require('crypto');
 const db = require('../config/database');
 
+const generateId = () => crypto.randomUUID();
+
 const findByEmail = async (email) => {
-  const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-  return result.rows[0] || null;
+  return db.get('SELECT * FROM users WHERE email = ?', [email]) || null;
 };
 
 const findByUsername = async (username) => {
-  const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-  return result.rows[0] || null;
+  return db.get('SELECT * FROM users WHERE username = ?', [username]) || null;
 };
 
 const findById = async (id) => {
-  const result = await db.query(
-    'SELECT id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at FROM users WHERE id = $1',
+  return db.get(
+    'SELECT id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at FROM users WHERE id = ?',
     [id],
-  );
-  return result.rows[0] || null;
+  ) || null;
 };
 
 const create = async ({ username, email, passwordHash }) => {
-  const result = await db.query(
-    `INSERT INTO users (username, email, password_hash)
-     VALUES ($1, $2, $3)
-     RETURNING id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at`,
-    [username, email, passwordHash],
+  const id = generateId();
+  db.run(
+    `INSERT INTO users (id, username, email, password_hash, rating, games_played, wins, losses, draws, role)
+     VALUES (?, ?, ?, ?, 1200, 0, 0, 0, 0, 'user')`,
+    [id, username, email, passwordHash],
   );
-  return result.rows[0];
+  return findById(id);
 };
 
-const updateRating = async (id, newRating, resultType) => {
-  const incrementMap = {
-    win: 'wins',
-    loss: 'losses',
-    draw: 'draws',
-  };
-  const incrementCol = incrementMap[resultType] || null;
-  let query;
-  let params;
-
-  if (incrementCol) {
-    query = `
-      UPDATE users
-      SET rating = $2, games_played = games_played + 1, ${incrementCol} = ${incrementCol} + 1, updated_at = NOW()
-      WHERE id = $1
-      RETURNING id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at
-    `;
-    params = [id, newRating];
-  } else {
-    query = `
-      UPDATE users
-      SET rating = $2, updated_at = NOW()
-      WHERE id = $1
-      RETURNING id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at
-    `;
-    params = [id, newRating];
-  }
-
-  const result = await db.query(query, params);
-  return result.rows[0];
-};
-
-const getLeaderboard = async (limit = 50, timeframe = null) => {
-  let query = `
-    SELECT id, username, rating, games_played, wins, losses, draws,
-           CASE
-             WHEN games_played > 0 THEN ROUND((wins::numeric / games_played * 100), 1)
-             ELSE 0
-           END AS win_rate
-    FROM users
-    WHERE games_played > 0
-  `;
-
-  if (timeframe === 'week') {
-    query += " AND updated_at > NOW() - INTERVAL '7 days'";
-  } else if (timeframe === 'month') {
-    query += " AND updated_at > NOW() - INTERVAL '30 days'";
-  }
-
-  query += ' ORDER BY rating DESC LIMIT $1';
-
-  const result = await db.query(query, [limit]);
-  return result.rows;
-};
-
-const searchPlayers = async (searchTerm, limit = 10) => {
-  const result = await db.query(
-    `SELECT id, username, rating, games_played
-     FROM users
-     WHERE username ILIKE $1
-     ORDER BY rating DESC
-     LIMIT $2`,
-    [`%${searchTerm}%`, limit],
+const updateRefreshToken = async (id, refreshToken, expiresAt) => {
+  db.run(
+    'UPDATE users SET refresh_token = ?, refresh_token_expires_at = ?, updated_at = datetime("now") WHERE id = ?',
+    [refreshToken, expiresAt, id],
   );
-  return result.rows;
+};
+
+const findByRefreshToken = async (token) => {
+  return db.get(
+    "SELECT * FROM users WHERE refresh_token = ? AND refresh_token_expires_at > datetime('now')",
+    [token],
+  ) || null;
+};
+
+const clearRefreshToken = async (id) => {
+  db.run(
+    'UPDATE users SET refresh_token = NULL, refresh_token_expires_at = NULL, updated_at = datetime("now") WHERE id = ?',
+    [id],
+  );
 };
 
 const getAllUsers = async () => {
-  const result = await db.query(
-    `SELECT id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at
-     FROM users ORDER BY created_at DESC`,
+  return db.query(
+    'SELECT id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at FROM users ORDER BY rating DESC',
   );
-  return result.rows;
+};
+
+const updateRating = async (id, rating, result) => {
+  const field = result === 'win' ? 'wins' : result === 'loss' ? 'losses' : 'draws';
+  db.run(
+    `UPDATE users SET rating = ?, games_played = games_played + 1, ${field} = ${field} + 1, updated_at = datetime("now") WHERE id = ?`,
+    [rating, id],
+  );
+};
+
+const setRole = async (id, role) => {
+  db.run('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?', [role, id]);
 };
 
 const deleteUser = async (id) => {
-  const result = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
-  return result.rowCount > 0;
+  db.run('DELETE FROM users WHERE id = ?', [id]);
 };
 
-const updateRole = async (id, role) => {
-  const result = await db.query(
-    `UPDATE users SET role = $2, updated_at = NOW()
-     WHERE id = $1
-     RETURNING id, username, email, rating, games_played, wins, losses, draws, role, created_at, updated_at`,
-    [id, role],
+const getLeaderboard = async (limit = 50) => {
+  return db.query(
+    'SELECT id, username, rating, games_played, wins, losses, draws FROM users ORDER BY rating DESC LIMIT ?',
+    [limit],
   );
-  return result.rows[0] || null;
 };
 
 module.exports = {
@@ -123,10 +83,12 @@ module.exports = {
   findByUsername,
   findById,
   create,
-  updateRating,
-  getLeaderboard,
-  searchPlayers,
+  updateRefreshToken,
+  findByRefreshToken,
+  clearRefreshToken,
   getAllUsers,
+  updateRating,
+  setRole,
   deleteUser,
-  updateRole,
+  getLeaderboard,
 };

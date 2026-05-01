@@ -33,24 +33,25 @@ router.post('/create', authenticate, async (req, res) => {
 
 /**
  * GET /api/games
- * List active games. Supports filters.
- * Query params: status (waiting|active|completed), playerId, limit
+ * List games. Supports filters.
+ * Query params: status (waiting|active|completed), playerId
  */
 router.get('/', authenticate, async (req, res) => {
   try {
-    const { status, playerId, limit } = req.query;
+    const { status, playerId } = req.query;
 
-    const filters = { limit: limit ? parseInt(limit, 10) : 50 };
-
-    if (status) {
-      filters.status = status.split(',');
-    }
-
+    let games;
     if (playerId) {
-      filters.playerId = playerId;
+      games = await Game.findByUser(playerId);
+      if (status) {
+        const statusList = status.split(',');
+        games = games.filter(g => statusList.includes(g.status));
+      }
+    } else if (status) {
+      games = await Game.findByStatus(status.split(','));
+    } else {
+      games = await Game.findByStatus(['waiting', 'active']);
     }
-
-    const games = await Game.getActiveGames(filters);
 
     return res.json({ games });
   } catch (err) {
@@ -61,7 +62,7 @@ router.get('/', authenticate, async (req, res) => {
 
 /**
  * GET /api/games/:id
- * Get full game details including moves.
+ * Get full game details.
  */
 router.get('/:id', authenticate, async (req, res) => {
   try {
@@ -71,9 +72,7 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Game not found' });
     }
 
-    const moves = await Game.getMoves(req.params.id);
-
-    return res.json({ game, moves });
+    return res.json({ game });
   } catch (err) {
     logger.error('Get game error:', err);
     return res.status(500).json({ error: 'Internal server error' });

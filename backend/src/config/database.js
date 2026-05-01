@@ -1,39 +1,42 @@
-const { Pool } = require('pg');
+const Database = require('better-sqlite3');
+const path = require('path');
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT, 10) || 5432,
-  database: process.env.DB_NAME || 'chess3d',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'chess3d.db');
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
-});
+let db;
 
-const query = async (text, params) => {
-  const start = Date.now();
-  const res = await pool.query(text, params);
-  const duration = Date.now() - start;
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Executed query', { text: text.substring(0, 80), duration, rows: res.rowCount });
+const getDb = () => {
+  if (!db) {
+    db = new Database(DB_PATH);
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    db.pragma('busy_timeout = 5000');
   }
-  return res;
+  return db;
 };
 
-const getClient = async () => {
-  const client = await pool.connect();
-  const originalRelease = client.release.bind(client);
-  client.release = () => {
-    client.query = undefined;
-    originalRelease();
-  };
-  return client;
+const query = (sql, params = []) => {
+  const db = getDb();
+  return db.prepare(sql).all(...params);
 };
 
-module.exports = { query, getClient, pool };
+const run = (sql, params = []) => {
+  const db = getDb();
+  return db.prepare(sql).run(...params);
+};
+
+const get = (sql, params = []) => {
+  const db = getDb();
+  return db.prepare(sql).get(...params);
+};
+
+const getClient = () => getDb();
+
+const close = () => {
+  if (db) {
+    db.close();
+    db = null;
+  }
+};
+
+module.exports = { query, run, get, getClient, getDb, close };

@@ -7,7 +7,7 @@ import {
   HiOutlineLogin,
   HiOutlineUserAdd,
   HiOutlineUser,
-  HiOutlineTrophy,
+  HiOutlineStar,
   HiOutlineShieldCheck,
   HiOutlineMenu,
   HiOutlineX,
@@ -28,7 +28,7 @@ export default function Navbar() {
 
   const navLinks = [
     { to: '/', label: 'Home', icon: HiOutlineHome, public: true },
-    { to: '/leaderboard', label: 'Leaderboard', icon: HiOutlineTrophy, public: true },
+    { to: '/leaderboard', label: 'Leaderboard', icon: HiOutlineStar, public: true },
     { to: '/lobby', label: 'Lobby', icon: GiChessRook, public: false },
     { to: '/profile', label: 'Profile', icon: HiOutlineUser, public: false },
     ...(isAdmin

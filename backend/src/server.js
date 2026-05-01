@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -77,7 +78,16 @@ app.use('/api/users', usersRoutes);
 app.use('/api/admin', adminRoutes);
 
 // ============================================================
-// 404 Handler
+// Static Files (Frontend SPA) — must be AFTER API routes
+// ============================================================
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
+// ============================================================
+// 404 Handler (API-only, non-existent API paths)
 // ============================================================
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
@@ -127,13 +137,13 @@ const shutdown = async (signal) => {
     });
   });
 
-  // Close database pool
+  // Close database
   try {
     const db = require('./config/database');
-    await db.pool.end();
-    logger.info('Database pool closed');
+    db.close();
+    logger.info('Database closed');
   } catch (err) {
-    logger.error('Error closing database pool:', err);
+    logger.error('Error closing database:', err);
   }
 
   process.exit(0);

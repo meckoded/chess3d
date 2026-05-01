@@ -7,14 +7,9 @@ const logger = require('../config/logger');
 
 const router = express.Router();
 
-// All admin routes require authentication + admin role
 router.use(authenticate);
 router.use(requireAdmin);
 
-/**
- * GET /api/admin/users
- * Get all users in the system.
- */
 router.get('/users', async (req, res) => {
   try {
     const users = await User.getAllUsers();
@@ -25,27 +20,13 @@ router.get('/users', async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/admin/users/:id
- * Delete a user from the system.
- */
 router.delete('/users/:id', async (req, res) => {
   try {
-    const targetId = req.params.id;
-
-    // Prevent self-deletion
-    if (targetId === req.user.id) {
+    if (req.params.id === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
-
-    const deleted = await User.deleteUser(targetId);
-
-    if (!deleted) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    logger.info(`Admin ${req.user.username} deleted user ${targetId}`);
-
+    await User.deleteUser(req.params.id);
+    logger.info(`Admin ${req.user.username} deleted user ${req.params.id}`);
     return res.json({ success: true, message: 'User deleted successfully' });
   } catch (err) {
     logger.error('Admin delete user error:', err);
@@ -53,40 +34,24 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-/**
- * PATCH /api/admin/users/:id/role
- * Change a user's role.
- */
 router.patch('/users/:id/role', async (req, res) => {
   try {
     const { role } = req.body;
-
     if (!role || !['user', 'admin'].includes(role)) {
       return res.status(400).json({ error: 'Valid role required: user or admin' });
     }
-
-    const updatedUser = await User.updateRole(req.params.id, role);
-
-    if (!updatedUser) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
+    await User.setRole(req.params.id, role);
     logger.info(`Admin ${req.user.username} changed user ${req.params.id} role to ${role}`);
-
-    return res.json({ user: updatedUser });
+    return res.json({ success: true, role });
   } catch (err) {
     logger.error('Admin update role error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-/**
- * GET /api/admin/games
- * Get all games in the system.
- */
 router.get('/games', async (req, res) => {
   try {
-    const games = await Game.getAllGames();
+    const games = await Game.findByStatus(['active', 'waiting', 'completed', 'draw', 'resigned']);
     return res.json({ games });
   } catch (err) {
     logger.error('Admin get games error:', err);
@@ -94,27 +59,10 @@ router.get('/games', async (req, res) => {
   }
 });
 
-/**
- * GET /api/admin/stats
- * Get system-wide statistics.
- */
 router.get('/stats', async (req, res) => {
   try {
-    const stats = await Game.getSystemStats();
-
-    const enhancedStats = {
-      ...stats,
-      total_users: parseInt(stats.total_users, 10),
-      total_games: parseInt(stats.total_games, 10),
-      active_games: parseInt(stats.active_games, 10),
-      completed_games: parseInt(stats.completed_games, 10),
-      waiting_games: parseInt(stats.waiting_games, 10),
-      total_moves: parseInt(stats.total_moves, 10),
-      average_rating: parseInt(stats.average_rating, 10),
-      highest_rating: parseInt(stats.highest_rating, 10),
-    };
-
-    return res.json({ stats: enhancedStats });
+    const stats = await Game.getStats();
+    return res.json({ stats });
   } catch (err) {
     logger.error('Admin get stats error:', err);
     return res.status(500).json({ error: 'Internal server error' });
