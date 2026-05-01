@@ -96,6 +96,32 @@ app.use('/api/users', usersRoutes);
 app.use('/api/admin', adminRoutes);
 
 // ============================================================
+// Debug Routes (must be BEFORE static files & catch-all)
+// ============================================================
+app.get('/api/debug', (req, res) => {
+  const info = {
+    node: process.version,
+    plat: process.platform,
+    cwd: process.cwd(),
+    env: process.env.NODE_ENV,
+    hasDb: false,
+    hasMigrate: false,
+  };
+  try {
+    const db = require('./config/database');
+    db.run('SELECT 1');
+    info.hasDb = true;
+    const tables = db.query("SELECT name FROM sqlite_master WHERE type='table'");
+    info.tables = tables.map(t => t.name);
+  } catch(e) { info.dbError = e.message; }
+  try {
+    require('./config/migrate');
+    info.hasMigrate = true;
+  } catch(e) { info.migrateError = e.message; }
+  res.json(info);
+});
+
+// ============================================================
 // Static Files (Frontend SPA) — must be AFTER API routes
 // ============================================================
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -195,28 +221,4 @@ process.on('unhandledRejection', (reason) => {
 
 module.exports = { app, server, io };
 
-// ============================================================
-// Debug Routes
-// ============================================================
-app.get('/api/debug', (req, res) => {
-  const info = {
-    node: process.version,
-    plat: process.platform,
-    cwd: process.cwd(),
-    env: process.env.NODE_ENV,
-    hasDb: false,
-    hasMigrate: false,
-  };
-  try {
-    const db = require('./config/database');
-    db.run('SELECT 1');
-    info.hasDb = true;
-    const tables = db.query("SELECT name FROM sqlite_master WHERE type='table'");
-    info.tables = tables.map(t => t.name);
-  } catch(e) { info.dbError = e.message; }
-  try {
-    require('./config/migrate');
-    info.hasMigrate = true;
-  } catch(e) { info.migrateError = e.message; }
-  res.json(info);
-});
+
