@@ -100,7 +100,10 @@ export default function Game() {
         const color = g.white_player === user.id ? 'white' : g.black_player === user.id ? 'black' : null;
         if (color) {
           setPlayerColor(color);
-          setOpponent(color === 'white' ? players?.black : players?.white);
+          const oppColor = color === 'white' ? 'black' : 'white';
+          setOpponent(oppColor === 'white'
+            ? { id: g.white_player, username: g.white_username, rating: g.white_rating }
+            : { id: g.black_player, username: g.black_username, rating: g.black_rating });
         }
         setLoading(false);
       } catch {

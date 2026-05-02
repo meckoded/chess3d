@@ -179,6 +179,10 @@ export default function GameScene({ onSquareClick, overrideFen }) {
             position={piece.position}
             isMoving={lastMove && (piece.square === lastMove.to)}
             isCaptured={false}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSquareClick?.(piece.square);
+            }}
           />
         ))}
       </Canvas>

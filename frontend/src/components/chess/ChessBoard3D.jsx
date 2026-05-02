@@ -5,7 +5,7 @@ import useGameStore from '../../store/gameStore';
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
-export default function ChessBoard3D() {
+export default function ChessBoard3D({ onSquareClick }) {
   const boardRef = useRef();
   const { legalMoves, selectedSquare } = useGameStore();
 
@@ -60,6 +60,17 @@ export default function ChessBoard3D() {
           key={key}
           position={position}
           receiveShadow
+          onClick={(e) => {
+            e.stopPropagation();
+            onSquareClick?.(key);
+          }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = 'pointer';
+          }}
+          onPointerOut={() => {
+            document.body.style.cursor = 'auto';
+          }}
         >
           <boxGeometry args={[1, 0.04, 1]} />
           <meshStandardMaterial

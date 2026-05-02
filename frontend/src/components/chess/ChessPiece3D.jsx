@@ -312,7 +312,7 @@ const PIECE_GEOMETRIES = {
   p: createPawnGeometry,
 };
 
-export default function ChessPiece3D({ piece, position, isMoving, isCaptured }) {
+export default function ChessPiece3D({ piece, position, isMoving, isCaptured, onClick }) {
   const groupRef = useRef();
   const liftAmount = piece.color === 'w' ? 0.1 : 0.1;
 
@@ -338,7 +338,10 @@ export default function ChessPiece3D({ piece, position, isMoving, isCaptured }) 
   const geometryCreator = PIECE_GEOMETRIES[piece.type];
 
   return (
-    <animated.group ref={groupRef}>
+    <animated.group
+      ref={groupRef}
+      onClick={(e) => { e.stopPropagation(); onClick?.(e); }}
+    >
       {geometryCreator(material)}
       {/* Shadow on piece base */}
       <mesh position={[0, 0.02, 0]} receiveShadow>
